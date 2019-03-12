@@ -1,22 +1,22 @@
 pub struct CPU {
-  pc: i16,
-  sp: i16,
-  a: i8,
-  f: i8,
-  b: i8,
-  c: i8,
-  d: i8,
-  e: i8,
-  h: i8,
-  l: i8,
-  m: i8,
-  t: i8,
+  pc: u16,
+  sp: u16,
+  a: u8,
+  f: u8,
+  b: u8,
+  c: u8,
+  d: u8,
+  e: u8,
+  h: u8,
+  l: u8,
+  m: u8,
+  t: u8,
   clock: Clock,
 }
 
 struct Clock {
-  m: i32,
-  t: i32,
+  m: u32,
+  t: u32,
 }
 
 impl CPU {
