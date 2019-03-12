@@ -1,6 +1,7 @@
 extern crate cfg_if;
 extern crate wasm_bindgen;
 
+mod cpu;
 mod utils;
 
 use cfg_if::cfg_if;
@@ -17,7 +18,7 @@ cfg_if! {
 }
 
 #[wasm_bindgen]
-extern {
+extern "C" {
     fn alert(s: &str);
 }
 
