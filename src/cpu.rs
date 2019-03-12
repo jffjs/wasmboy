@@ -1,14 +1,3 @@
-struct Register {
-  a: i8,
-  f: i8,
-  b: i8,
-  c: i8,
-  d: i8,
-  e: i8,
-  h: i8,
-  l: i8,
-}
-
 pub struct CPU {
   pc: i16,
   sp: i16,
@@ -22,6 +11,12 @@ pub struct CPU {
   l: i8,
   m: i8,
   t: i8,
+  clock: Clock,
+}
+
+struct Clock {
+  m: i32,
+  t: i32,
 }
 
 impl CPU {
@@ -39,6 +34,7 @@ impl CPU {
       sp: 0,
       m: 0,
       t: 0,
+      clock: Clock { m: 0, t: 0 },
     }
   }
 }
