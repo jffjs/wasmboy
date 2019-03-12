@@ -37,4 +37,6 @@ impl CPU {
       clock: Clock { m: 0, t: 0 },
     }
   }
+
+  pub fn exec(&mut self) {}
 }

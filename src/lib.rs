@@ -2,6 +2,7 @@ extern crate cfg_if;
 extern crate wasm_bindgen;
 
 mod cpu;
+mod opcode;
 mod utils;
 
 use cfg_if::cfg_if;
