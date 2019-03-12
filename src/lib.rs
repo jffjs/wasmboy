@@ -1,7 +1,11 @@
 extern crate cfg_if;
+extern crate num;
 extern crate wasm_bindgen;
+#[macro_use]
+extern crate num_derive;
 
 mod cpu;
+mod mmu;
 mod opcode;
 mod utils;
 

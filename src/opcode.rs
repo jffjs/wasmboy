@@ -1,4 +1,5 @@
 #[allow(non_camel_case_types)]
+#[derive(FromPrimitive)]
 pub enum Opcode {
     NOP = 0x00,
     LDBCnn = 0x01,
@@ -259,6 +260,7 @@ pub enum Opcode {
 }
 
 #[allow(non_camel_case_types)]
+#[derive(FromPrimitive)]
 pub enum ExtOpcode {
     RLCB = 0x00,
     RLCC = 0x01,
