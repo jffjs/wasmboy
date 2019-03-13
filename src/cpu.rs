@@ -15,6 +15,7 @@ pub struct CPU {
     l: u8,
     m: u8,
     t: u8,
+    stop: bool,
     clock: Clock,
 }
 
@@ -45,12 +46,15 @@ impl CPU {
             sp: 0,
             m: 0,
             t: 0,
+            stop: false,
             clock: Clock { m: 0, t: 0 },
         }
     }
 
     pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), &str> {
-        match Opcode::from_u8(mmu.read_byte(self.pc)) {
+        let pc = self.pc;
+        self.pc += 1;
+        match Opcode::from_u8(mmu.read_byte(pc)) {
             Some(op) => match op {
                 Opcode::NOP => {
                     self.m = 1;
@@ -183,12 +187,31 @@ impl CPU {
                     }
                     self.a = (self.a >> 1) | (lsb << 7);
                 }
+                Opcode::STOP => {
+                    if self.pc == 0 {
+                        self.pc += 1;
+                        self.stop = true;
+                        self.m = 1;
+                    } else {
+                        return Err("Invalid opcode - STOP should be 0x10");
+                    }
+                }
+                Opcode::LDDEnn => {
+                    self.e = mmu.read_byte(self.pc);
+                    self.d = mmu.read_byte(self.pc + 1);
+                    self.pc += 2;
+                    self.m = 3;
+                }
+                Opcode::LD_DE_A => {
+                    let addr = ((self.d as u16) << 8) + (self.e as u16);
+                    mmu.write_byte(addr, self.a);
+                    self.m = 2;
+                }
                 _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),
         }
 
-        self.pc += 1;
         self.clock.m += self.m as u32;
         Ok(())
     }
