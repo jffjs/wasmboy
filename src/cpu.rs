@@ -23,6 +23,13 @@ struct Clock {
   t: u32,
 }
 
+enum Flag {
+  Z,
+  N,
+  H,
+  C,
+}
+
 impl CPU {
   pub fn new() -> CPU {
     CPU {
@@ -68,56 +75,63 @@ impl CPU {
         }
         Opcode::INCB => {
           self.b += 1;
-          // set zero flag
           if self.b == 0 {
-            self.f |= 0x80;
+            self.set_flag(Flag::Z);
           }
-          // set half-carry flag
-          self.f |= ((self.b & 0xf) + 1) & 0x10;
+          if check_half_carry_8(self.b, 1) {
+            self.set_flag(Flag::H);
+          }
           self.m = 1;
         }
         Opcode::DECB => {
           self.b -= 1;
           if self.b == 0 {
-            self.f |= 0x80;
+            self.set_flag(Flag::Z);
           }
-          self.f |= 0x40;
-          self.f |= ((self.b & 0xf) - 1) & 0x10;
+          self.set_flag(Flag::N);
+          if !check_half_borrow_8(self.b, 1) {
+            self.set_flag(Flag::H);
+          }
           self.m = 1;
         }
         Opcode::LDBn => {
           self.b = mmu.read_byte(self.pc);
           self.pc += 1;
           self.m = 2;
-        },
+        }
         Opcode::RLCA => {
-          self.f &= 0xbf;
-          self.f &= 0xdf;
+          self.reset_flag(Flag::N);
+          self.reset_flag(Flag::H);
           let msb = (self.a & 0x80) >> 7;
           if msb == 1 {
-            self.f |= 0x10;
+            self.set_flag(Flag::C);
           } else {
-            self.f &= 0xef;
+            self.reset_flag(Flag::C);
           }
           self.a = (self.a << 1) | msb;
           self.m = 1;
-        },
+        }
         Opcode::LD_nn_SP => {
           let addr = mmu.read_word(self.pc);
-          self.pc +=1;
+          self.pc += 1;
           mmu.write_word(addr, self.sp);
           self.m = 5;
-        },
+        }
         Opcode::ADDHLBC => {
-          self.f &= 0xbf;
+          self.reset_flag(Flag::N);
           let mut hl = ((self.h as u16) << 8) | self.l as u16;
           let bc = ((self.b as u16) << 8) | self.c as u16;
-          // check half carry
+          if check_half_carry_16(hl, bc) {
+            self.set_flag(Flag::H);
+          }
+          if check_carry_16(hl, bc) {
+            self.set_flag(Flag::C);
+          }
           hl = hl + bc;
           self.h = (hl >> 8) as u8;
           self.l = (hl & 0x00ff) as u8;
           self.m = 2; // jsGb has this as 3?
-        },
+        }
         _ => return Err("Unsupported operation."),
       },
       None => return Err("Unsupported operation."),
@@ -126,4 +140,54 @@ impl CPU {
     self.pc += 1;
     Ok(())
   }
+
+  fn set_flag(&mut self, flag: Flag) {
+    match flag {
+      Flag::Z => self.f |= 0x80,
+      Flag::N => self.f |= 0x40,
+      Flag::H => self.f |= 0x20,
+      Flag::C => self.f |= 0x10,
+    }
+  }
+
+  fn reset_flag(&mut self, flag: Flag) {
+    match flag {
+      Flag::Z => self.f &= 0x7f,
+      Flag::N => self.f &= 0xbf,
+      Flag::H => self.f &= 0xdf,
+      Flag::C => self.f &= 0xef,
+    }
+  }
+}
+
+fn check_half_carry_8(a: u8, b: u8) -> bool {
+  ((a & 0xf) + (b & 0xf)) & 0x10 == 0x10
+}
+
+fn check_half_carry_16(a: u16, b: u16) -> bool {
+  (a & 0xfff) + (b & 0xfff) & 0x1000 == 0x1000
+}
+
+fn check_carry_8(a: u8, b: u8) -> bool {
+  a + b < a
+}
+
+fn check_carry_16(a: u16, b: u16) -> bool {
+  a + b < a
+}
+
+fn check_half_borrow_8(a: u8, b: u8) -> bool {
+  (a & 0xf) < (b & 0xf)
+}
+
+fn check_half_borrow_16(a: u16, b: u16) -> bool {
+  (a & 0xfff) < (b & 0xfff)
+}
+
+fn check_borrow_8(a: u8, b: u8) -> bool {
+  a < b
+}
+
+fn check_borrow_16(a: u16, b: u16) -> bool {
+  a < b
 }
