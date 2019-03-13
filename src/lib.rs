@@ -31,3 +31,8 @@ extern "C" {
 pub fn greet() {
     alert("Hello, wasmboy!");
 }
+
+#[test]
+fn it_works() {
+    println!("{}", ((0xff as i8) as u8) as u16);
+}

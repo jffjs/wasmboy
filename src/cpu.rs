@@ -66,7 +66,7 @@ impl CPU {
                     self.m = 3;
                 }
                 Opcode::LD_BC_A => {
-                    let addr = ((self.b as u16) << 8) + self.c as u16;
+                    let addr = self.bc();
                     mmu.write_byte(addr, self.a);
                     self.m = 2;
                 }
@@ -107,13 +107,16 @@ impl CPU {
                 Opcode::RLCA => {
                     self.reset_flag(Flag::N);
                     self.reset_flag(Flag::H);
-                    let msb = (self.a & 0x80) >> 7;
-                    if msb == 1 {
+                    let b7 = (self.a & 0x80) >> 7;
+                    if b7 == 1 {
                         self.set_flag(Flag::C);
                     } else {
                         self.reset_flag(Flag::C);
                     }
-                    self.a = (self.a << 1) | msb;
+                    self.a = (self.a << 1) | b7;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
                     self.m = 1;
                 }
                 Opcode::LD_nn_SP => {
@@ -124,21 +127,21 @@ impl CPU {
                 }
                 Opcode::ADDHLBC => {
                     self.reset_flag(Flag::N);
-                    let mut hl = ((self.h as u16) << 8) | self.l as u16;
-                    let bc = ((self.b as u16) << 8) | self.c as u16;
+                    let mut hl = self.hl();
+                    let bc = self.bc();
                     if check_half_carry_16(hl, bc) {
                         self.set_flag(Flag::H);
                     }
                     if check_carry_16(hl, bc) {
                         self.set_flag(Flag::C);
                     }
-                    hl = hl + bc;
+                    hl += bc;
                     self.h = (hl >> 8) as u8;
                     self.l = (hl & 0x00ff) as u8;
                     self.m = 2; // jsGb has this as 3?
                 }
                 Opcode::LDA_BC_ => {
-                    let addr = ((self.b as u16) << 8) + self.c as u16;
+                    let addr = self.bc();
                     self.a = mmu.read_byte(addr);
                     self.m = 2;
                 }
@@ -179,13 +182,17 @@ impl CPU {
                 Opcode::RRCA => {
                     self.reset_flag(Flag::N);
                     self.reset_flag(Flag::H);
-                    let lsb = self.a & 0x1;
-                    if lsb == 1 {
+                    let b0 = self.a & 0x1;
+                    if b0 == 1 {
                         self.set_flag(Flag::C);
                     } else {
                         self.reset_flag(Flag::C);
                     }
-                    self.a = (self.a >> 1) | (lsb << 7);
+                    self.a = (self.a >> 1) | (b0 << 7);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
                 }
                 Opcode::STOP => {
                     if self.pc == 0 {
@@ -203,9 +210,210 @@ impl CPU {
                     self.m = 3;
                 }
                 Opcode::LD_DE_A => {
-                    let addr = ((self.d as u16) << 8) + (self.e as u16);
-                    mmu.write_byte(addr, self.a);
+                    mmu.write_byte(self.de(), self.a);
                     self.m = 2;
+                }
+                Opcode::INCDE => {
+                    self.e += 1;
+                    if self.e != 0 {
+                        self.d += 1;
+                    }
+                    self.m = 2; //jsGB has 1?
+                }
+                Opcode::INCD => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.d, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.d += 1;
+                    if self.d == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::DECD => {
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.d, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.d -= 1;
+                    if self.d == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::LDDn => {
+                    self.d = mmu.read_byte(self.pc);
+                    self.pc += 1;
+                    self.m = 2;
+                }
+                Opcode::RLA => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (self.a & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    self.a = (self.a << 1) | self.test_flag(Flag::C);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                }
+                Opcode::JRn => {
+                    let offset = mmu.read_byte(self.pc);
+                    self.pc += 1;
+                    if (offset & 0x80) == 0x80 {
+                        self.pc -= (!offset + 1) as u16;
+                    } else {
+                        self.pc += offset as u16;
+                    }
+                    self.m = 2;
+                }
+                Opcode::ADDHLDE => {
+                    self.reset_flag(Flag::N);
+                    let mut hl = self.hl();
+                    let de = self.de();
+                    if check_half_carry_16(hl, de) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_16(hl, de) {
+                        self.set_flag(Flag::C);
+                    }
+                    hl += de;
+                    self.h = (hl >> 8) as u8;
+                    self.l = (hl & 0x00ff) as u8;
+                    self.m = 2; // jsGB has 3
+                }
+                Opcode::LDA_DE_ => {
+                    self.a = mmu.read_byte(self.de());
+                    self.m = 2;
+                }
+                Opcode::DECDE => {
+                    self.d -= 1;
+                    if self.d == 0xff {
+                        self.e -= 1;
+                    }
+                    self.m = 2; //jsGB has 1?
+                }
+                Opcode::INCE => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.d, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.d += 1;
+                    if self.d == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::DECE => {
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.e, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.e -= 1;
+                    if self.e == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::LDEn => {
+                    self.e = mmu.read_byte(self.pc);
+                    self.pc += 1;
+                    self.m = 2;
+                }
+                Opcode::RRA => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = self.a & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    self.a = (self.a >> 1) | (self.test_flag(Flag::C) << 7);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::JRNZn => {
+                    if self.test_flag(Flag::Z) == 0 {
+                        let offset = mmu.read_byte(self.pc);
+                        if (offset & 0x80) == 0x80 {
+                            self.pc -= (!offset + 1) as u16;
+                        } else {
+                            self.pc += offset as u16;
+                        }
+                    }
+                    self.m = 2;
+                }
+                Opcode::LDHLnn => {
+                    self.h = mmu.read_byte(self.pc);
+                    self.l = mmu.read_byte(self.pc + 1);
+                    self.pc += 2;
+                    self.m = 3;
+                }
+                Opcode::LDI_HL_A => {
+                    mmu.write_byte(self.hl(), self.a);
+                    self.l += 1;
+                    if self.l != 0 {
+                        self.h += 1;
+                    }
+                    self.m = 2;
+                }
+                Opcode::INCHL => {
+                    self.l += 1;
+                    if self.l != 0 {
+                        self.h += 1;
+                    }
+                    self.m = 2;
+                }
+                Opcode::INCH => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.h, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.h += 1;
+                    if self.h == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::DECH => {
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.h, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.h -= 1;
+                    if self.h == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::LDHn => {
+                    self.h = mmu.read_byte(self.pc);
+                    self.pc += 1;
+                    self.m = 2;
+                }
+                Opcode::DAA => {
+                    let mut a = self.a;
+                    if self.test_flag(Flag::H) == 1 || (self.a & 0xf) > 9 {
+                        a += 0x6;
+                    }
+                    self.reset_flag(Flag::H);
+                    if self.test_flag(Flag::C) == 1 || ((self.a & 0xf0) >> 4) > 9 {
+                        a += 0x60;
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    self.a = a;
+                    if a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
                 }
                 _ => return Err("Unsupported operation."),
             },
@@ -214,6 +422,27 @@ impl CPU {
 
         self.clock.m += self.m as u32;
         Ok(())
+    }
+
+    fn bc(&self) -> u16 {
+        ((self.b as u16) << 8) + self.c as u16
+    }
+
+    fn de(&self) -> u16 {
+        ((self.d as u16) << 8) + self.e as u16
+    }
+
+    fn hl(&self) -> u16 {
+        ((self.h as u16) << 8) + self.l as u16
+    }
+
+    fn test_flag(&self, flag: Flag) -> u8 {
+        match flag {
+            Flag::Z => (self.f & 0x80) >> 7,
+            Flag::N => (self.f & 0x40) >> 6,
+            Flag::H => (self.f & 0x20) >> 5,
+            Flag::C => (self.f & 0x10) >> 4,
+        }
     }
 
     fn set_flag(&mut self, flag: Flag) {
