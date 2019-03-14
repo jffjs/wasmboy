@@ -4,6 +4,7 @@ extern crate wasm_bindgen;
 #[macro_use]
 extern crate num_derive;
 
+mod cartridge;
 mod cpu;
 mod mmu;
 mod opcode;

@@ -54,7 +54,7 @@ impl CPU {
 
     pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), &str> {
         let pc = self.pc;
-        self.pc += 1;
+        self.pc = self.pc.wrapping_add(1);
         match Opcode::from_u8(mmu.read_byte(pc)) {
             Some(op) => match op {
                 Opcode::NOP => {
@@ -62,8 +62,8 @@ impl CPU {
                 }
                 Opcode::LDBCnn => {
                     self.c = mmu.read_byte(self.pc);
-                    self.b = mmu.read_byte(self.pc + 1);
-                    self.pc += 2;
+                    self.b = mmu.read_byte(self.pc.wrapping_add(1));
+                    self.pc = self.pc.wrapping_add(2);
                     self.m = 3;
                 }
                 Opcode::LD_BC_A => {
@@ -72,9 +72,9 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::INCBC => {
-                    self.c += 1;
+                    self.c = self.c.wrapping_add(1);
                     if self.c == 0 {
-                        self.b += 1;
+                        self.b = self.b.wrapping_add(1);
                     }
                     self.m = 1;
                 }
@@ -83,7 +83,7 @@ impl CPU {
                     if check_half_carry_8(self.b, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.b += 1;
+                    self.b = self.b.wrapping_add(1);
                     if self.b == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -94,7 +94,7 @@ impl CPU {
                     if !check_half_borrow_8(self.b, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.b -= 1;
+                    self.b = self.b.wrapping_sub(1);
                     if self.b == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -102,7 +102,7 @@ impl CPU {
                 }
                 Opcode::LDBn => {
                     self.b = mmu.read_byte(self.pc);
-                    self.pc += 1;
+                    self.pc = self.pc.wrapping_add(1);
                     self.m = 2;
                 }
                 Opcode::RLCA => {
@@ -114,7 +114,7 @@ impl CPU {
                     } else {
                         self.reset_flag(Flag::C);
                     }
-                    self.a = (self.a << 1) | b7;
+                    self.a = self.a.rotate_left(1);
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -122,7 +122,7 @@ impl CPU {
                 }
                 Opcode::LD_nn_SP => {
                     let addr = mmu.read_word(self.pc);
-                    self.pc += 1;
+                    self.pc = self.pc.wrapping_add(1);
                     mmu.write_word(addr, self.sp);
                     self.m = 5;
                 }
@@ -136,7 +136,7 @@ impl CPU {
                     if check_carry_16(hl, bc) {
                         self.set_flag(Flag::C);
                     }
-                    hl += bc;
+                    hl = hl.wrapping_add(bc);
                     self.h = (hl >> 8) as u8;
                     self.l = (hl & 0x00ff) as u8;
                     self.m = 2; // jsGb has this as 3?
@@ -147,9 +147,9 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::DECBC => {
-                    self.c -= 1;
+                    self.c = self.c.wrapping_sub(1);
                     if self.c == 0xff {
-                        self.b -= 1;
+                        self.b = self.b.wrapping_sub(1);
                     }
                     self.m = 2; //jsGB has 1?
                 }
@@ -158,7 +158,7 @@ impl CPU {
                     if check_half_carry_8(self.c, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.c += 1;
+                    self.c = self.c.wrapping_add(1);
                     if self.c == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -169,7 +169,7 @@ impl CPU {
                     if !check_half_borrow_8(self.c, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.c -= 1;
+                    self.c = self.c.wrapping_sub(1);
                     if self.c == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -177,7 +177,7 @@ impl CPU {
                 }
                 Opcode::LDCn => {
                     self.c = mmu.read_byte(self.pc);
-                    self.pc += 1;
+                    self.pc = self.pc.wrapping_add(1);
                     self.m = 2;
                 }
                 Opcode::RRCA => {
@@ -189,7 +189,7 @@ impl CPU {
                     } else {
                         self.reset_flag(Flag::C);
                     }
-                    self.a = (self.a >> 1) | (b0 << 7);
+                    self.a = self.a.rotate_right(1);
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -197,7 +197,7 @@ impl CPU {
                 }
                 Opcode::STOP => {
                     if self.pc == 0 {
-                        self.pc += 1;
+                        self.pc = self.pc.wrapping_add(1);
                         self.stop = true;
                         self.m = 1;
                     } else {
@@ -206,8 +206,8 @@ impl CPU {
                 }
                 Opcode::LDDEnn => {
                     self.e = mmu.read_byte(self.pc);
-                    self.d = mmu.read_byte(self.pc + 1);
-                    self.pc += 2;
+                    self.d = mmu.read_byte(self.pc.wrapping_add(1));
+                    self.pc = self.pc.wrapping_add(2);
                     self.m = 3;
                 }
                 Opcode::LD_DE_A => {
@@ -215,9 +215,9 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::INCDE => {
-                    self.e += 1;
+                    self.e = self.e.wrapping_add(1);
                     if self.e != 0 {
-                        self.d += 1;
+                        self.d = self.d.wrapping_add(1);
                     }
                     self.m = 2; //jsGB has 1?
                 }
@@ -226,7 +226,7 @@ impl CPU {
                     if check_half_carry_8(self.d, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.d += 1;
+                    self.d = self.d.wrapping_add(1);
                     if self.d == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -237,7 +237,7 @@ impl CPU {
                     if !check_half_borrow_8(self.d, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.d -= 1;
+                    self.d = self.d.wrapping_sub(1);
                     if self.d == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -245,7 +245,7 @@ impl CPU {
                 }
                 Opcode::LDDn => {
                     self.d = mmu.read_byte(self.pc);
-                    self.pc += 1;
+                    self.pc = self.pc.wrapping_add(1);
                     self.m = 2;
                 }
                 Opcode::RLA => {
@@ -261,14 +261,15 @@ impl CPU {
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
                     }
+                    self.m = 1;
                 }
                 Opcode::JRn => {
                     let offset = mmu.read_byte(self.pc);
-                    self.pc += 1;
+                    self.pc = self.pc.wrapping_add(1);
                     if (offset & 0x80) == 0x80 {
-                        self.pc -= (!offset + 1) as u16;
+                        self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
                     } else {
-                        self.pc += offset as u16;
+                        self.pc = self.pc.wrapping_add(offset as u16);
                     }
                     self.m = 2;
                 }
@@ -282,7 +283,7 @@ impl CPU {
                     if check_carry_16(hl, de) {
                         self.set_flag(Flag::C);
                     }
-                    hl += de;
+                    hl = hl.wrapping_add(de);
                     self.h = (hl >> 8) as u8;
                     self.l = (hl & 0x00ff) as u8;
                     self.m = 2; // jsGB has 3
@@ -292,9 +293,9 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::DECDE => {
-                    self.d -= 1;
+                    self.d = self.d.wrapping_sub(1);
                     if self.d == 0xff {
-                        self.e -= 1;
+                        self.e = self.e.wrapping_sub(1);
                     }
                     self.m = 2; //jsGB has 1?
                 }
@@ -303,7 +304,7 @@ impl CPU {
                     if check_half_carry_8(self.d, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.d += 1;
+                    self.d = self.d.wrapping_add(1);
                     if self.d == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -314,7 +315,7 @@ impl CPU {
                     if !check_half_borrow_8(self.e, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.e -= 1;
+                    self.e = self.e.wrapping_sub(1);
                     if self.e == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -322,7 +323,7 @@ impl CPU {
                 }
                 Opcode::LDEn => {
                     self.e = mmu.read_byte(self.pc);
-                    self.pc += 1;
+                    self.pc = self.pc.wrapping_add(1);
                     self.m = 2;
                 }
                 Opcode::RRA => {
@@ -344,31 +345,31 @@ impl CPU {
                     if self.test_flag(Flag::Z) == 0 {
                         let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
-                            self.pc -= (!offset + 1) as u16;
+                            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
                         } else {
-                            self.pc += offset as u16;
+                            self.pc = self.pc.wrapping_add(offset as u16);
                         }
                     }
                     self.m = 2;
                 }
                 Opcode::LDHLnn => {
                     self.h = mmu.read_byte(self.pc);
-                    self.l = mmu.read_byte(self.pc + 1);
-                    self.pc += 2;
+                    self.l = mmu.read_byte(self.pc.wrapping_add(1));
+                    self.pc = self.pc.wrapping_add(2);
                     self.m = 3;
                 }
                 Opcode::LDI_HL_A => {
                     mmu.write_byte(self.hl(), self.a);
-                    self.l += 1;
+                    self.l = self.l.wrapping_add(1);
                     if self.l != 0 {
-                        self.h += 1;
+                        self.h = self.h.wrapping_add(1);
                     }
                     self.m = 2;
                 }
                 Opcode::INCHL => {
-                    self.l += 1;
+                    self.l = self.l.wrapping_add(1);
                     if self.l != 0 {
-                        self.h += 1;
+                        self.h = self.h.wrapping_add(1);
                     }
                     self.m = 2;
                 }
@@ -377,7 +378,7 @@ impl CPU {
                     if check_half_carry_8(self.h, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.h += 1;
+                    self.h = self.h.wrapping_add(1);
                     if self.h == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -388,7 +389,7 @@ impl CPU {
                     if !check_half_borrow_8(self.h, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.h -= 1;
+                    self.h = self.h.wrapping_sub(1);
                     if self.h == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -396,7 +397,7 @@ impl CPU {
                 }
                 Opcode::LDHn => {
                     self.h = mmu.read_byte(self.pc);
-                    self.pc += 1;
+                    self.pc = self.pc.wrapping_add(1);
                     self.m = 2;
                 }
                 Opcode::DAA => {
@@ -420,9 +421,9 @@ impl CPU {
                     if self.test_flag(Flag::Z) == 1 {
                         let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
-                            self.pc -= (!offset + 1) as u16;
+                            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
                         } else {
-                            self.pc += offset as u16;
+                            self.pc = self.pc.wrapping_add(offset as u16);
                         }
                     }
                     self.m = 2;
@@ -436,23 +437,23 @@ impl CPU {
                     if check_carry_16(hl, hl) {
                         self.set_flag(Flag::C);
                     }
-                    hl += hl;
+                    hl = hl.wrapping_add(hl);
                     self.h = (hl >> 8) as u8;
                     self.l = (hl & 0x00ff) as u8;
                     self.m = 2; // jsGB has 3
                 }
                 Opcode::LDIA_HL_ => {
                     self.a = mmu.read_byte(self.hl());
-                    self.l += 1;
+                    self.l = self.l.wrapping_add(1);
                     if self.l != 0 {
-                        self.h += 1;
+                        self.h = self.h.wrapping_add(1);
                     }
                     self.m = 2;
                 }
                 Opcode::DECHL => {
-                    self.l -= 1;
+                    self.l = self.l.wrapping_sub(1);
                     if self.l == 0xff {
-                        self.h -= 1;
+                        self.h = self.h.wrapping_sub(1);
                     }
                     self.m = 2; //jsGB has 1?
                 }
@@ -461,7 +462,7 @@ impl CPU {
                     if check_half_carry_8(self.l, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.l += 1;
+                    self.l = self.l.wrapping_add(1);
                     if self.l == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -472,7 +473,7 @@ impl CPU {
                     if !check_half_borrow_8(self.l, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.l -= 1;
+                    self.l = self.l.wrapping_sub(1);
                     if self.l == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -480,7 +481,7 @@ impl CPU {
                 }
                 Opcode::LDLn => {
                     self.l = mmu.read_byte(self.pc);
-                    self.pc += 1;
+                    self.pc = self.pc.wrapping_add(1);
                     self.m = 2;
                 }
                 Opcode::CPL => {
@@ -493,28 +494,28 @@ impl CPU {
                     if self.test_flag(Flag::C) == 0 {
                         let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
-                            self.pc -= (!offset + 1) as u16;
+                            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
                         } else {
-                            self.pc += offset as u16;
+                            self.pc = self.pc.wrapping_add(offset as u16);
                         }
                     }
                     self.m = 2;
                 }
                 Opcode::LDSPnn => {
                     self.sp = mmu.read_word(self.pc);
-                    self.pc += 2;
+                    self.pc = self.pc.wrapping_add(2);
                     self.m = 3;
                 }
                 Opcode::LDD_HL_A => {
                     mmu.write_byte(self.hl(), self.a);
-                    self.l -= 1;
+                    self.l = self.l.wrapping_sub(1);
                     if self.l == 0xff {
-                        self.h -= 1;
+                        self.h = self.h.wrapping_sub(1);
                     }
                     self.m = 2;
                 }
                 Opcode::INCSP => {
-                    self.sp += 1;
+                    self.sp = self.sp.wrapping_add(1);
                     self.m = 2;
                 }
                 Opcode::INC_HL_ => {
@@ -524,7 +525,7 @@ impl CPU {
                     if check_half_carry_8(val, 1) {
                         self.set_flag(Flag::H);
                     }
-                    val += 1;
+                    val = val.wrapping_add(1);
                     if val == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -538,14 +539,58 @@ impl CPU {
                     if !check_half_borrow_8(val, 1) {
                         self.set_flag(Flag::H);
                     }
-                    val -= 1;
+                    val = val.wrapping_sub(1);
                     if val == 0 {
                         self.set_flag(Flag::Z);
                     }
                     mmu.write_byte(addr, val);
                     self.m = 3;
                 }
-                Opcode::LD_HL_n => {}
+                Opcode::LD_HL_n => {
+                    let val = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    mmu.write_byte(self.hl(), val);
+                    self.m = 3;
+                }
+                Opcode::SCF => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.set_flag(Flag::C);
+                    self.m = 1;
+                }
+                Opcode::JRCn => {
+                    if self.test_flag(Flag::C) == 1 {
+                        let offset = mmu.read_byte(self.pc);
+                        if (offset & 0x80) == 0x80 {
+                            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
+                        } else {
+                            self.pc = self.pc.wrapping_add(offset as u16);
+                        }
+                    }
+                    self.m = 2;
+                }
+                Opcode::ADDHLSP => {
+                    self.reset_flag(Flag::N);
+                    let mut hl = self.hl();
+                    if check_half_carry_16(hl, self.sp) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_16(hl, self.sp) {
+                        self.set_flag(Flag::C);
+                    }
+                    hl = hl.wrapping_add(self.sp);
+                    self.h = (hl >> 8) as u8;
+                    self.l = (hl & 0x00ff) as u8;
+                    self.m = 2; // jsGB has 3
+                }
+                Opcode::LDDA_HL_ => {
+                    self.a = mmu.read_byte(self.hl());
+                    self.l = self.l.wrapping_sub(1);
+                    if self.l == 0xff {
+                        self.h = self.h.wrapping_sub(1);
+                    }
+                    self.m = 2;
+                }
                 _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),
@@ -632,6 +677,20 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_exec() {
+        let mut cpu = CPU::new();
+        let mut mmu = MMU::new();
+
+        cpu.exec(&mut mmu).expect("CPU exec failed");
+        assert_eq!(cpu.pc, 1, "program counter increases");
+        assert_eq!(cpu.clock.m, 1, "advances clock");
+
+        cpu.exec(&mut mmu).expect("CPU exec failed");
+        assert_eq!(cpu.pc, 2, "program counter increases");
+        assert_eq!(cpu.clock.m, 2, "advances clock");
+    }
+
+    #[test]
     fn test_check_half_carry_8() {
         assert!(check_half_carry_8(0xf, 0x1));
         assert!(!check_half_carry_8(0xf, 0x0));
@@ -644,9 +703,38 @@ mod tests {
     }
 
     #[test]
-    #[allow(const_err)]
-    fn test_carry_8() {
+    fn test_check_carry_8() {
         assert!(check_carry_8(0xff, 0x1));
         assert!(!check_carry_8(0xfe, 0x1))
+    }
+
+    #[test]
+    fn test_check_carry_16() {
+        assert!(check_carry_16(0xffff, 0x1));
+        assert!(!check_carry_16(0xfffe, 0x1));
+    }
+
+    #[test]
+    fn test_check_half_borrow_8() {
+        assert!(check_half_borrow_8(0x10, 0xf));
+        assert!(!check_half_borrow_8(0xff, 0x1));
+    }
+
+    #[test]
+    fn test_check_borrow_8() {
+        assert!(check_borrow_8(0x1, 0x2));
+        assert!(!check_borrow_8(0xff, 0x1));
+    }
+
+    #[test]
+    fn test_check_half_borrow_16() {
+        assert!(check_half_borrow_16(0x100, 0xf00));
+        assert!(!check_half_borrow_16(0xfff, 0x1));
+    }
+
+    #[test]
+    fn test_check_borrow_16() {
+        assert!(check_borrow_16(0x1000, 0xf000));
+        assert!(!check_borrow_16(0xf000, 0x1000));
     }
 }
