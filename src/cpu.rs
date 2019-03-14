@@ -1,6 +1,7 @@
 use mmu::MMU;
 use num::FromPrimitive;
 use opcode::*;
+use std::num::Wrapping;
 
 pub struct CPU {
     pc: u16,
@@ -516,6 +517,35 @@ impl CPU {
                     self.sp += 1;
                     self.m = 2;
                 }
+                Opcode::INC_HL_ => {
+                    self.reset_flag(Flag::N);
+                    let addr = self.hl();
+                    let mut val = mmu.read_byte(addr);
+                    if check_half_carry_8(val, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    val += 1;
+                    if val == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    mmu.write_byte(addr, val);
+                    self.m = 3;
+                }
+                Opcode::DEC_HL_ => {
+                    self.set_flag(Flag::N);
+                    let addr = self.hl();
+                    let mut val = mmu.read_byte(addr);
+                    if !check_half_borrow_8(val, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    val -= 1;
+                    if val == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    mmu.write_byte(addr, val);
+                    self.m = 3;
+                }
+                Opcode::LD_HL_n => {}
                 _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),
@@ -574,11 +604,11 @@ fn check_half_carry_16(a: u16, b: u16) -> bool {
 }
 
 fn check_carry_8(a: u8, b: u8) -> bool {
-    a + b < a
+    a.wrapping_add(b) < a
 }
 
 fn check_carry_16(a: u16, b: u16) -> bool {
-    a + b < a
+    a.wrapping_add(b) < a
 }
 
 fn check_half_borrow_8(a: u8, b: u8) -> bool {
@@ -595,4 +625,28 @@ fn check_borrow_8(a: u8, b: u8) -> bool {
 
 fn check_borrow_16(a: u16, b: u16) -> bool {
     a < b
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_half_carry_8() {
+        assert!(check_half_carry_8(0xf, 0x1));
+        assert!(!check_half_carry_8(0xf, 0x0));
+    }
+
+    #[test]
+    fn test_check_half_carry_16() {
+        assert!(check_half_carry_16(0xfff, 0x1));
+        assert!(!check_half_carry_16(0xfff, 0x0));
+    }
+
+    #[test]
+    #[allow(const_err)]
+    fn test_carry_8() {
+        assert!(check_carry_8(0xff, 0x1));
+        assert!(!check_carry_8(0xfe, 0x1))
+    }
 }
