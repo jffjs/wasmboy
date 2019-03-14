@@ -415,6 +415,107 @@ impl CPU {
                         self.set_flag(Flag::Z);
                     }
                 }
+                Opcode::JRZn => {
+                    if self.test_flag(Flag::Z) == 1 {
+                        let offset = mmu.read_byte(self.pc);
+                        if (offset & 0x80) == 0x80 {
+                            self.pc -= (!offset + 1) as u16;
+                        } else {
+                            self.pc += offset as u16;
+                        }
+                    }
+                    self.m = 2;
+                }
+                Opcode::ADDHLHL => {
+                    self.reset_flag(Flag::N);
+                    let mut hl = self.hl();
+                    if check_half_carry_16(hl, hl) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_16(hl, hl) {
+                        self.set_flag(Flag::C);
+                    }
+                    hl += hl;
+                    self.h = (hl >> 8) as u8;
+                    self.l = (hl & 0x00ff) as u8;
+                    self.m = 2; // jsGB has 3
+                }
+                Opcode::LDIA_HL_ => {
+                    self.a = mmu.read_byte(self.hl());
+                    self.l += 1;
+                    if self.l != 0 {
+                        self.h += 1;
+                    }
+                    self.m = 2;
+                }
+                Opcode::DECHL => {
+                    self.l -= 1;
+                    if self.l == 0xff {
+                        self.h -= 1;
+                    }
+                    self.m = 2; //jsGB has 1?
+                }
+                Opcode::INCL => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.l, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.l += 1;
+                    if self.l == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::DECL => {
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.l, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.l -= 1;
+                    if self.l == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::LDLn => {
+                    self.l = mmu.read_byte(self.pc);
+                    self.pc += 1;
+                    self.m = 2;
+                }
+                Opcode::CPL => {
+                    self.set_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    self.a ^= 0xff;
+                    self.m = 1;
+                }
+                Opcode::JRNCn => {
+                    if self.test_flag(Flag::C) == 0 {
+                        let offset = mmu.read_byte(self.pc);
+                        if (offset & 0x80) == 0x80 {
+                            self.pc -= (!offset + 1) as u16;
+                        } else {
+                            self.pc += offset as u16;
+                        }
+                    }
+                    self.m = 2;
+                }
+                Opcode::LDSPnn => {
+                    self.sp = mmu.read_word(self.pc);
+                    self.pc += 2;
+                    self.m = 3;
+                }
+                Opcode::LDD_HL_A => {
+                    mmu.write_byte(self.hl(), self.a);
+                    self.l -= 1;
+                    if self.l == 0xff {
+                        self.h -= 1;
+                    }
+                    self.m = 2;
+                }
+                Opcode::INCSP => {
+                    self.sp += 1;
+                    self.m = 2;
+                }
                 _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),
