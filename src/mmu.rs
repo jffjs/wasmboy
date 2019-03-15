@@ -24,7 +24,10 @@ impl MMU {
             // ROM bank 0
             0x1 | 0x2 | 0x3 => self.rom()[addr as usize],
             // ROM bank 1
-            0x4 | 0x5 | 0x6 | 0x7 => self.rom()[addr as usize],
+            0x4 | 0x5 | 0x6 | 0x7 => {
+                let offset = self.rom_bank() as u16 * 0x4000;
+                self.rom()[(addr + offset) as usize]
+            }
             // Graphics: VRAM
             0x8 | 0x9 => 0, // TODO: read from VRAM
             // External RAM
@@ -77,6 +80,14 @@ impl MMU {
     fn rom(&self) -> &[u8] {
         if let Some(ref cart) = self.cart {
             cart.rom.as_slice()
+        } else {
+            panic!("Cartridge ROM has not been loaded!");
+        }
+    }
+
+    fn rom_bank(&self) -> u8 {
+        if let Some(ref cart) = self.cart {
+            cart.rom_bank
         } else {
             panic!("Cartridge ROM has not been loaded!");
         }

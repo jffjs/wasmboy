@@ -2,6 +2,8 @@ pub struct Cartridge {
     pub cart_type: CartType,
     pub mode: CartMode,
     pub rom: Vec<u8>,
+    pub rom_bank: u8,
+    pub ram_bank: u8,
 }
 
 impl Cartridge {
@@ -18,6 +20,8 @@ impl Cartridge {
             cart_type,
             mode: CartMode::Default,
             rom: Vec::from(data),
+            rom_bank: 0,
+            ram_bank: 0,
         }
     }
 
