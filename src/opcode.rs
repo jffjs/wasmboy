@@ -1,5 +1,5 @@
 #[allow(non_camel_case_types)]
-#[derive(FromPrimitive)]
+#[derive(Debug, FromPrimitive)]
 pub enum Opcode {
     NOP = 0x00,
     LDBCnn = 0x01,

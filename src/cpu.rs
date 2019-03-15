@@ -55,6 +55,7 @@ impl CPU {
     pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), &str> {
         let pc = self.pc;
         self.pc = self.pc.wrapping_add(1);
+        println!("opcode: {:?}", Opcode::from_u8(mmu.read_byte(pc)).unwrap());
         match Opcode::from_u8(mmu.read_byte(pc)) {
             Some(op) => match op {
                 Opcode::NOP => {
@@ -79,6 +80,7 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::INCB => {
+                    println!("inc b");
                     self.reset_flag(Flag::N);
                     if check_half_carry_8(self.b, 1) {
                         self.set_flag(Flag::H);
@@ -675,17 +677,26 @@ fn check_borrow_16(a: u16, b: u16) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cartridge::Cartridge;
+
+    fn mmu_stub(b1: u8, b2: u8, b3: u8) -> MMU {
+        let mut cart_data = [0; 0x148];
+        cart_data[0x0] = b1;
+        cart_data[0x1] = b2;
+        cart_data[0x2] = b3;
+        let cart = Cartridge::new(&cart_data);
+        MMU::new(cart)
+    }
 
     #[test]
     fn test_exec() {
         let mut cpu = CPU::new();
-        let mut mmu = MMU::new();
 
-        cpu.exec(&mut mmu).expect("CPU exec failed");
+        cpu.exec(&mut mmu_stub(0, 0, 0)).expect("CPU exec failed");
         assert_eq!(cpu.pc, 1, "program counter increases");
         assert_eq!(cpu.clock.m, 1, "advances clock");
 
-        cpu.exec(&mut mmu).expect("CPU exec failed");
+        cpu.exec(&mut mmu_stub(0, 0, 0)).expect("CPU exec failed");
         assert_eq!(cpu.pc, 2, "program counter increases");
         assert_eq!(cpu.clock.m, 2, "advances clock");
     }
@@ -736,5 +747,44 @@ mod tests {
     fn test_check_borrow_16() {
         assert!(check_borrow_16(0x1000, 0xf000));
         assert!(!check_borrow_16(0xf000, 0x1000));
+    }
+
+    #[test]
+    fn test_incb() {
+        let mut cpu = CPU::new();
+        cpu.b = 0xff;
+        cpu.set_flag(Flag::N);
+        cpu.exec(&mut mmu_stub(Opcode::INCB as u8, 0, 0))
+            .expect("CPU exec failed");
+        assert_eq!(cpu.b, 0);
+        assert_eq!(cpu.test_flag(Flag::Z), 1);
+        assert_eq!(cpu.test_flag(Flag::N), 0);
+        assert_eq!(cpu.test_flag(Flag::H), 1);
+    }
+
+    #[test]
+    fn test_rlca() {
+        let mut cpu = CPU::new();
+        cpu.a = 0b1000_0000;
+        cpu.set_flag(Flag::N);
+        cpu.set_flag(Flag::H);
+        cpu.exec(&mut mmu_stub(Opcode::RLCA as u8, 0, 0))
+            .expect("CPU exec failed");
+        assert_eq!(cpu.a, 0b0000_0001);
+        assert_eq!(cpu.test_flag(Flag::N), 0);
+        assert_eq!(cpu.test_flag(Flag::H), 0);
+        assert_eq!(cpu.test_flag(Flag::C), 1);
+    }
+
+    #[test]
+    fn test_lda_bc_() {
+        let mut cpu = CPU::new();
+        let mut mmu = mmu_stub(Opcode::LDA_BC_ as u8, 0, 0);
+        mmu.write_byte(0xc001, 0xab);
+        cpu.b = 0xc0;
+        cpu.c = 0x01;
+
+        cpu.exec(&mut mmu).expect("CPU exec failed");
+        assert_eq!(cpu.a, 0xab);
     }
 }
