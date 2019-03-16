@@ -254,12 +254,12 @@ impl CPU {
                     self.reset_flag(Flag::N);
                     self.reset_flag(Flag::H);
                     let b7 = (self.a & 0x80) >> 7;
+                    self.a = (self.a << 1) | self.test_flag(Flag::C);
                     if b7 == 1 {
                         self.set_flag(Flag::C);
                     } else {
                         self.reset_flag(Flag::C);
                     }
-                    self.a = (self.a << 1) | self.test_flag(Flag::C);
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -332,12 +332,12 @@ impl CPU {
                     self.reset_flag(Flag::N);
                     self.reset_flag(Flag::H);
                     let b0 = self.a & 0x1;
+                    self.a = (self.a >> 1) | (self.test_flag(Flag::C) << 7);
                     if b0 == 1 {
                         self.set_flag(Flag::C);
                     } else {
                         self.reset_flag(Flag::C);
                     }
-                    self.a = (self.a >> 1) | (self.test_flag(Flag::C) << 7);
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -786,5 +786,33 @@ mod tests {
 
         cpu.exec(&mut mmu).expect("CPU exec failed");
         assert_eq!(cpu.a, 0xab);
+    }
+
+    #[test]
+    fn test_rra() {
+        let mut cpu = CPU::new();
+        cpu.a = 0b1000_0000;
+        cpu.set_flag(Flag::N);
+        cpu.set_flag(Flag::H);
+        cpu.set_flag(Flag::C);
+        cpu.exec(&mut mmu_stub(Opcode::RRA as u8, 0, 0))
+            .expect("CPU exec failed");
+        assert_eq!(cpu.a, 0b1100_0000);
+        assert_eq!(cpu.test_flag(Flag::C), 0);
+        assert_eq!(cpu.test_flag(Flag::N), 0);
+        assert_eq!(cpu.test_flag(Flag::H), 0);
+    }
+
+    #[test]
+    fn test_jrn() {
+        let mut cpu = CPU::new();
+        cpu.exec(&mut mmu_stub(Opcode::JRn as u8, 0xff, 0))
+            .expect("CPU exec failed");
+        assert_eq!(cpu.pc, 1);
+
+        cpu.pc = 0;
+        cpu.exec(&mut mmu_stub(Opcode::JRn as u8, 0x1, 0))
+            .expect("CPU exec failed");
+        assert_eq!(cpu.pc, 3);
     }
 }
