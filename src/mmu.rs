@@ -2,7 +2,7 @@ use cartridge::*;
 
 pub struct MMU {
     cart: Cartridge,
-    e_ram: [u8; 0x8000],
+    e_ram: [u8; 0x20000],
     w_ram: [u8; 0x2000],
     z_ram: [u8; 0x80],
 }
@@ -11,7 +11,7 @@ impl MMU {
     pub fn new(cart: Cartridge) -> MMU {
         MMU {
             cart,
-            e_ram: [0; 0x8000],
+            e_ram: [0; 0x20000],
             w_ram: [0; 0x2000],
             z_ram: [0; 0x80],
         }
@@ -79,10 +79,10 @@ impl MMU {
     pub fn write_byte(&mut self, addr: u16, value: u8) {
         match (addr & 0xf000) >> 12 {
             // ROM bank 0
-            // MBC1: Turn external RAM on
+            // Turn external RAM on
             0x0 | 0x1 => {
                 match self.cart.cart_type {
-                    CartType::MBC1 => {
+                    CartType::MBC1 | CartType::MBC3 => {
                         // set RAM switch
                         self.cart.ram_enabled = (value & 0xf) == 0xa;
                     }
@@ -94,14 +94,15 @@ impl MMU {
                     _ => (),
                 }
             }
-            // MBC1: ROM bank switch
+            // ROM bank switch
             0x2 | 0x3 => match self.cart.cart_type {
                 CartType::MBC1 => {
                     self.cart.rom_bank &= 0x60;
                     let mut rom_bank = value & 0x1f;
-                    if rom_bank == 0 {
-                        rom_bank = 1;
-                    }
+                    rom_bank = match rom_bank {
+                        0x0 | 0x20 | 0x40 | 0x60 => rom_bank + 1,
+                        _ => rom_bank,
+                    };
                     self.cart.rom_bank |= rom_bank;
                 }
                 CartType::MBC2 => {
@@ -114,10 +115,18 @@ impl MMU {
                         self.cart.rom_bank |= rom_bank;
                     }
                 }
+                CartType::MBC3 => {
+                    self.cart.rom_bank &= 0x00;
+                    let mut rom_bank = value & 0x7f;
+                    if rom_bank == 0 {
+                        rom_bank = 1;
+                    }
+                    self.cart.rom_bank |= rom_bank;
+                }
                 _ => (),
             },
             // ROM bank 1
-            // MBC1: RAM bank switch
+            // RAM bank switch
             0x4 | 0x5 => match self.cart.cart_type {
                 CartType::MBC1 => match self.cart.mode {
                     CartMode::RamBank => {
@@ -130,6 +139,11 @@ impl MMU {
                         self.cart.rom_bank |= (value & 0x3) << 5;
                     }
                 },
+                CartType::MBC3 => {
+                    if self.cart.ram_enabled {
+                        self.cart.ram_bank = value & 0x7;
+                    }
+                }
                 _ => (),
             },
             // MBC1: mode switch
