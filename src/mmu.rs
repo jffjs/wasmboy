@@ -31,10 +31,14 @@ impl MMU {
             // Graphics: VRAM
             0x8 | 0x9 => 0, // TODO: read from VRAM
             // External RAM
-            0xa | 0xb => {
-                let offset = self.ram_bank() * 0x2000;
-                self.e_ram[((addr & 0x1fff) + offset) as usize]
-            }
+            0xa | 0xb => match self.cart.cart_type {
+                CartType::MBC1 => {
+                    let offset = self.ram_bank() * 0x2000;
+                    self.e_ram[((addr & 0x1fff) + offset) as usize]
+                }
+                CartType::MBC2 => self.e_ram[(addr & 0x1ff) as usize],
+                _ => 0,
+            },
             // Working RAM
             0xc | 0xd => self.w_ram[(addr & 0x1fff) as usize],
             // Working RAM shadow
@@ -82,23 +86,36 @@ impl MMU {
                         // set RAM switch
                         self.cart.ram_enabled = (value & 0xf) == 0xa;
                     }
+                    CartType::MBC2 => {
+                        if (addr & 0x0100) == 0 {
+                            self.cart.ram_enabled = !self.cart.ram_enabled;
+                        }
+                    }
                     _ => (),
                 }
             }
             // MBC1: ROM bank switch
-            0x2 | 0x3 => {
-                match self.cart.cart_type {
-                    CartType::MBC1 => {
-                        self.cart.rom_bank &= 0x60; // TODO: jsGB does this... why?
-                        let mut rom_bank = value & 0x1f;
+            0x2 | 0x3 => match self.cart.cart_type {
+                CartType::MBC1 => {
+                    self.cart.rom_bank &= 0x60;
+                    let mut rom_bank = value & 0x1f;
+                    if rom_bank == 0 {
+                        rom_bank = 1;
+                    }
+                    self.cart.rom_bank |= rom_bank;
+                }
+                CartType::MBC2 => {
+                    if (addr & 0x0100) == 0x0100 {
+                        self.cart.rom_bank &= 0x0;
+                        let mut rom_bank = value & 0xf;
                         if rom_bank == 0 {
                             rom_bank = 1;
                         }
                         self.cart.rom_bank |= rom_bank;
                     }
-                    _ => (),
                 }
-            }
+                _ => (),
+            },
             // ROM bank 1
             // MBC1: RAM bank switch
             0x4 | 0x5 => match self.cart.cart_type {
@@ -131,11 +148,19 @@ impl MMU {
             // External RAM
             0xa | 0xb => {
                 if self.cart.ram_enabled {
-                    let offset = match self.cart.mode {
-                        CartMode::RamBank => self.ram_bank() * 0x2000,
-                        CartMode::Default => 0,
-                    };
-                    self.e_ram[((addr & 0x1fff) + offset) as usize] = value;
+                    match self.cart.cart_type {
+                        CartType::MBC1 => {
+                            let offset = match self.cart.mode {
+                                CartMode::RamBank => self.ram_bank() * 0x2000,
+                                CartMode::Default => 0,
+                            };
+                            self.e_ram[((addr & 0x1fff) + offset) as usize] = value;
+                        }
+                        CartType::MBC2 => {
+                            self.e_ram[(addr & 0x1ff) as usize] = value & 0xf;
+                        }
+                        _ => (),
+                    }
                 }
             }
             // Working RAM and echo
@@ -188,6 +213,12 @@ mod test {
     fn mbc1_cart() -> Cartridge {
         let mut cart_data = [0; 0x148];
         cart_data[0x147] = 0x1; // MBC1
+        Cartridge::new(&cart_data)
+    }
+
+    fn mbc2_cart() -> Cartridge {
+        let mut cart_data = [0; 0x148];
+        cart_data[0x147] = 0x5; // MBC2
         Cartridge::new(&cart_data)
     }
 
@@ -304,5 +335,27 @@ mod test {
         mmu.write_byte(0x4000, 0x0);
         assert_eq!(mmu.read_byte(0xa000), 0xff);
         assert_eq!(mmu.read_byte(0xa0cb), 0x12);
+    }
+
+    #[test]
+    fn test_mbc2() {
+        let mut mmu = MMU::new(mbc2_cart());
+
+        mmu.write_byte(0x00ff, 0x1);
+        assert!(mmu.cart.ram_enabled);
+        mmu.write_byte(0x02ff, 0x2);
+        assert!(!mmu.cart.ram_enabled);
+        mmu.write_byte(0x03ff, 0x2);
+        assert!(!mmu.cart.ram_enabled);
+
+        mmu.write_byte(0x00ff, 0x1);
+        mmu.write_byte(0xa000, 0xff);
+        assert_eq!(mmu.read_byte(0xa000), 0x0f);
+
+        mmu.write_byte(0x2100, 0xf3);
+        assert_eq!(mmu.cart.rom_bank, 3);
+
+        mmu.write_byte(0x2000, 0x82);
+        assert_eq!(mmu.cart.rom_bank, 3);
     }
 }
