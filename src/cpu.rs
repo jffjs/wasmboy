@@ -17,6 +17,7 @@ pub struct CPU {
     m: u8,
     t: u8,
     stop: bool,
+    halt: bool,
     clock: Clock,
 }
 
@@ -48,6 +49,7 @@ impl CPU {
             m: 0,
             t: 0,
             stop: false,
+            halt: false,
             clock: Clock { m: 0, t: 0 },
         }
     }
@@ -592,6 +594,1163 @@ impl CPU {
                         self.h = self.h.wrapping_sub(1);
                     }
                     self.m = 2;
+                }
+                Opcode::DECSP => {
+                    self.sp = self.sp.wrapping_sub(1);
+                    self.m = 2;
+                }
+                Opcode::INCA => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.a = self.l.wrapping_add(1);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::DECA => {
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, 1) {
+                        self.set_flag(Flag::H);
+                    }
+                    self.a = self.a.wrapping_sub(1);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::LDAn => {
+                    self.a = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    self.m = 2;
+                }
+                Opcode::CCF => {
+                    if self.test_flag(Flag::C) == 1 {
+                        self.reset_flag(Flag::C);
+                    } else {
+                        self.set_flag(Flag::C)
+                    }
+                    self.m = 1;
+                }
+                Opcode::LDBB => {
+                    self.m = 1;
+                }
+                Opcode::LDBC => {
+                    self.b = self.c;
+                    self.m = 1;
+                }
+                Opcode::LDBD => {
+                    self.b = self.d;
+                    self.m = 1;
+                }
+                Opcode::LDBE => {
+                    self.b = self.e;
+                    self.m = 1;
+                }
+                Opcode::LDBH => {
+                    self.b = self.h;
+                    self.m = 1;
+                }
+                Opcode::LDBL => {
+                    self.b = self.l;
+                    self.m = 1;
+                }
+                Opcode::LDB_HL_ => {
+                    self.b = mmu.read_byte(self.hl());
+                    self.m = 2;
+                }
+                Opcode::LDBA => {
+                    self.b = self.a;
+                    self.m = 1;
+                }
+
+                Opcode::LDCB => {
+                    self.c = self.b;
+                    self.m = 1;
+                }
+                Opcode::LDCC => {
+                    self.m = 1;
+                }
+                Opcode::LDCD => {
+                    self.c = self.d;
+                    self.m = 1;
+                }
+                Opcode::LDCE => {
+                    self.c = self.e;
+                    self.m = 1;
+                }
+                Opcode::LDCH => {
+                    self.c = self.h;
+                    self.m = 1;
+                }
+                Opcode::LDCL => {
+                    self.c = self.l;
+                    self.m = 1;
+                }
+                Opcode::LDC_HL_ => {
+                    self.c = mmu.read_byte(self.hl());
+                    self.m = 2;
+                }
+                Opcode::LDCA => {
+                    self.c = self.a;
+                    self.m = 1;
+                }
+
+                Opcode::LDDB => {
+                    self.d = self.b;
+                    self.m = 1;
+                }
+                Opcode::LDDC => {
+                    self.d = self.c;
+                    self.m = 1;
+                }
+                Opcode::LDDD => {
+                    self.m = 1;
+                }
+                Opcode::LDDE => {
+                    self.d = self.e;
+                    self.m = 1;
+                }
+                Opcode::LDDH => {
+                    self.d = self.h;
+                    self.m = 1;
+                }
+                Opcode::LDDL => {
+                    self.d = self.l;
+                    self.m = 1;
+                }
+                Opcode::LDD_HL_ => {
+                    self.d = mmu.read_byte(self.hl());
+                    self.m = 2;
+                }
+                Opcode::LDDA => {
+                    self.d = self.a;
+                    self.m = 1;
+                }
+                Opcode::LDEB => {
+                    self.e = self.b;
+                    self.m = 1;
+                }
+                Opcode::LDEC => {
+                    self.e = self.c;
+                    self.m = 1;
+                }
+                Opcode::LDED => {
+                    self.e = self.d;
+                    self.m = 1;
+                }
+                Opcode::LDEE => {
+                    self.m = 1;
+                }
+                Opcode::LDEH => {
+                    self.e = self.h;
+                    self.m = 1;
+                }
+                Opcode::LDEL => {
+                    self.e = self.l;
+                    self.m = 1;
+                }
+                Opcode::LDE_HL_ => {
+                    self.e = mmu.read_byte(self.hl());
+                    self.m = 2;
+                }
+                Opcode::LDEA => {
+                    self.e = self.a;
+                    self.m = 1;
+                }
+                Opcode::LDHB => {
+                    self.h = self.b;
+                    self.m = 1;
+                }
+                Opcode::LDHC => {
+                    self.h = self.c;
+                    self.m = 1;
+                }
+                Opcode::LDHD => {
+                    self.h = self.d;
+                    self.m = 1;
+                }
+                Opcode::LDHE => {
+                    self.h = self.e;
+                    self.m = 1;
+                }
+                Opcode::LDHH => {
+                    self.m = 1;
+                }
+                Opcode::LDHL => {
+                    self.h = self.l;
+                    self.m = 1;
+                }
+                Opcode::LDH_HL_ => {
+                    self.h = mmu.read_byte(self.hl());
+                    self.m = 2;
+                }
+                Opcode::LDHA => {
+                    self.h = self.a;
+                    self.m = 1;
+                }
+                Opcode::LDLB => {
+                    self.l = self.b;
+                    self.m = 1;
+                }
+                Opcode::LDLC => {
+                    self.l = self.c;
+                    self.m = 1;
+                }
+                Opcode::LDLD => {
+                    self.l = self.d;
+                    self.m = 1;
+                }
+                Opcode::LDLE => {
+                    self.l = self.e;
+                    self.m = 1;
+                }
+                Opcode::LDLH => {
+                    self.l = self.h;
+                    self.m = 1;
+                }
+                Opcode::LDLL => {
+                    self.m = 1;
+                }
+                Opcode::LDL_HL_ => {
+                    self.l = mmu.read_byte(self.hl());
+                    self.m = 2;
+                }
+                Opcode::LDLA => {
+                    self.l = self.a;
+                    self.m = 1;
+                }
+                Opcode::LD_HL_B => {
+                    mmu.write_byte(self.hl(), self.b);
+                    self.m = 2;
+                }
+                Opcode::LD_HL_C => {
+                    mmu.write_byte(self.hl(), self.c);
+                    self.m = 2;
+                }
+                Opcode::LD_HL_D => {
+                    mmu.write_byte(self.hl(), self.d);
+                    self.m = 2;
+                }
+                Opcode::LD_HL_E => {
+                    mmu.write_byte(self.hl(), self.e);
+                    self.m = 2;
+                }
+                Opcode::LD_HL_H => {
+                    mmu.write_byte(self.hl(), self.h);
+                    self.m = 2;
+                }
+                Opcode::LD_HL_L => {
+                    mmu.write_byte(self.hl(), self.l);
+                    self.m = 2;
+                }
+                Opcode::HALT => {
+                    self.halt = true;
+                    self.m = 1;
+                }
+                Opcode::LD_HL_A => {
+                    mmu.write_byte(self.hl(), self.a);
+                    self.m = 2;
+                }
+                Opcode::LDAB => {
+                    self.a = self.b;
+                    self.m = 1;
+                }
+                Opcode::LDAC => {
+                    self.a = self.c;
+                    self.m = 1;
+                }
+                Opcode::LDAD => {
+                    self.a = self.d;
+                    self.m = 1;
+                }
+                Opcode::LDAE => {
+                    self.a = self.e;
+                    self.m = 1;
+                }
+                Opcode::LDAH => {
+                    self.a = self.h;
+                    self.m = 1;
+                }
+                Opcode::LDAL => {
+                    self.a = self.l;
+                    self.m = 1;
+                }
+                Opcode::LDA_HL_ => {
+                    self.a = mmu.read_byte(self.hl());
+                    self.m = 2;
+                }
+                Opcode::LDAA => {
+                    self.m = 1;
+                }
+                Opcode::ADDAB => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, self.b) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, self.b) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(self.b);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADDAC => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, self.c) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, self.c) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(self.c);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADDAD => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, self.d) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, self.d) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(self.d);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADDAE => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, self.e) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, self.e) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(self.e);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADDAH => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, self.h) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, self.h) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(self.h);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADDAL => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, self.l) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, self.l) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(self.l);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADDA_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::ADDAA => {
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, self.a) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, self.a) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(self.a);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADCAB => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.b.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADCAC => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.c.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADCAD => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.d.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADCAE => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.e.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADCAH => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.h.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADCAL => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.l.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ADCA_HL_ => {
+                    let carry = self.test_flag(Flag::C);
+                    let mut value = mmu.read_byte(self.hl());
+                    value = value.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::ADCAA => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.a.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SUBAB => {
+                    let value = self.b;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SUBAC => {
+                    let value = self.c;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SUBAD => {
+                    let value = self.d;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SUBAE => {
+                    let value = self.e;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SUBAH => {
+                    let value = self.h;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SUBAL => {
+                    let value = self.l;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SUBA_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::SUBAA => {
+                    let value = self.a;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SBCAB => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.b.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SBCAC => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.c.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SBCAD => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.d.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SBCAE => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.e.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SBCAH => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.h.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SBCAL => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.l.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::SBCA_HL_ => {
+                    let carry = self.test_flag(Flag::C);
+                    let mut value = mmu.read_byte(self.hl());
+                    value = value.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::SBCAA => {
+                    let carry = self.test_flag(Flag::C);
+                    let value = self.a.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ANDB => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::C);
+                    self.set_flag(Flag::H);
+                    self.a &= self.b;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ANDC => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::C);
+                    self.set_flag(Flag::H);
+                    self.a &= self.c;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ANDD => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::C);
+                    self.set_flag(Flag::H);
+                    self.a &= self.d;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ANDE => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::C);
+                    self.set_flag(Flag::H);
+                    self.a &= self.e;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ANDH => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::C);
+                    self.set_flag(Flag::H);
+                    self.a &= self.h;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ANDL => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::C);
+                    self.set_flag(Flag::H);
+                    self.a &= self.l;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::AND_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::C);
+                    self.set_flag(Flag::H);
+                    self.a &= mmu.read_byte(self.hl());
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::XORB => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a ^= self.b;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::XORC => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a ^= self.c;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::XORD => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a ^= self.d;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::XORE => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a ^= self.e;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::XORH => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a ^= self.h;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::XORL => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a ^= self.l;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::XOR_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a ^= mmu.read_byte(self.hl());
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::XORA => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a ^= self.a;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ORB => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a |= self.a;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ORC => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a |= self.c;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ORD => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a |= self.d;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ORE => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a |= self.e;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ORH => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a |= self.h;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::ORL => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a |= self.l;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::OR_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a |= mmu.read_byte(self.hl());
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::ORA => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    self.a |= self.a;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::CPB => {
+                    let value = self.b;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::CPC => {
+                    let value = self.c;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::CPD => {
+                    let value = self.d;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::CPE => {
+                    let value = self.e;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::CPH => {
+                    let value = self.h;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::CP_L => {
+                    let value = self.l;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::CP_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::CPA => {
+                    let value = self.a;
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
+                Opcode::RETNZ => {
+                    if self.test_flag(Flag::Z) == 0 {
+                        self.pc = mmu.read_word(self.sp);
+                        self.sp = self.sp.wrapping_add(2);
+                    }
+                    self.m = 2; //jsGB has 3 (1 + 2 if true)?
+                }
+                Opcode::POPBC => {
+                    self.c = mmu.read_byte(self.sp);
+                    self.sp = self.sp.wrapping_add(1);
+                    self.b = mmu.read_byte(self.sp);
+                    self.sp = self.sp.wrapping_add(1);
+                    self.m = 3;
+                }
+                Opcode::JPNZnn => {
+                    if self.test_flag(Flag::Z) == 0 {
+                        self.pc = mmu.read_word(self.pc);
+                    } else {
+                        self.pc = self.pc.wrapping_add(2);
+                    }
+                    self.m = 3;
+                }
+                Opcode::JPnn => {
+                    self.pc = mmu.read_word(self.pc);
+                    self.m = 3;
                 }
                 _ => return Err("Unsupported operation."),
             },

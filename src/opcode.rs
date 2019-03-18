@@ -120,7 +120,7 @@ pub enum Opcode {
     LD_HL_H = 0x74,
     LD_HL_L = 0x75,
     HALT = 0x76,
-    LDA_HL_A = 0x77,
+    LD_HL_A = 0x77,
     LDAB = 0x78,
     LDAC = 0x79,
     LDAD = 0x7a,
@@ -190,7 +190,7 @@ pub enum Opcode {
     CPD = 0xba,
     CPE = 0xbb,
     CPH = 0xbc,
-    CP_L = 0xbd,
+    CP_L = 0xbd, // CPL is taken
     CP_HL_ = 0xbe,
     CPA = 0xbf,
     RETNZ = 0xc0,
