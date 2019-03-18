@@ -2,7 +2,7 @@ pub struct Cartridge {
     pub cart_type: CartType,
     pub mode: CartMode,
     pub rom: Vec<u8>,
-    pub rom_bank: u8,
+    pub rom_bank: u16,
     pub ram_bank: u8,
     pub ram_enabled: bool,
 }

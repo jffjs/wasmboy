@@ -25,8 +25,12 @@ impl MMU {
             0x1 | 0x2 | 0x3 => self.rom()[addr as usize],
             // ROM bank 1
             0x4 | 0x5 | 0x6 | 0x7 => {
-                let offset = self.rom_bank() * 0x4000;
-                self.rom()[((addr & 0x3fff) + offset) as usize]
+                if self.rom_bank() > 0 {
+                    let offset = self.rom_bank() * 0x4000;
+                    self.rom()[((addr & 0x3fff) + offset) as usize]
+                } else {
+                    self.rom()[(addr & 0x3fff) as usize]
+                }
             }
             // Graphics: VRAM
             0x8 | 0x9 => 0, // TODO: read from VRAM
@@ -82,7 +86,7 @@ impl MMU {
             // Turn external RAM on
             0x0 | 0x1 => {
                 match self.cart.cart_type {
-                    CartType::MBC1 | CartType::MBC3 => {
+                    CartType::MBC1 | CartType::MBC3 | CartType::MBC5 => {
                         // set RAM switch
                         self.cart.ram_enabled = (value & 0xf) == 0xa;
                     }
@@ -103,7 +107,7 @@ impl MMU {
                         0x0 | 0x20 | 0x40 | 0x60 => rom_bank + 1,
                         _ => rom_bank,
                     };
-                    self.cart.rom_bank |= rom_bank;
+                    self.cart.rom_bank |= rom_bank as u16;
                 }
                 CartType::MBC2 => {
                     if (addr & 0x0100) == 0x0100 {
@@ -112,7 +116,7 @@ impl MMU {
                         if rom_bank == 0 {
                             rom_bank = 1;
                         }
-                        self.cart.rom_bank |= rom_bank;
+                        self.cart.rom_bank |= rom_bank as u16;
                     }
                 }
                 CartType::MBC3 => {
@@ -121,7 +125,15 @@ impl MMU {
                     if rom_bank == 0 {
                         rom_bank = 1;
                     }
-                    self.cart.rom_bank |= rom_bank;
+                    self.cart.rom_bank |= rom_bank as u16;
+                }
+                CartType::MBC5 => {
+                    if addr < 0x3000 {
+                        self.cart.rom_bank |= value as u16;
+                    } else {
+                        let rom_bank = self.cart.rom_bank | (value as u16) << 8;
+                        self.cart.rom_bank = rom_bank & 0x1ff;
+                    }
                 }
                 _ => (),
             },
@@ -136,12 +148,17 @@ impl MMU {
                     }
                     CartMode::Default => {
                         self.cart.rom_bank &= 0x1f;
-                        self.cart.rom_bank |= (value & 0x3) << 5;
+                        self.cart.rom_bank |= ((value & 0x3) << 5) as u16;
                     }
                 },
                 CartType::MBC3 => {
                     if self.cart.ram_enabled {
                         self.cart.ram_bank = value & 0x7;
+                    }
+                }
+                CartType::MBC5 => {
+                    if self.cart.ram_enabled {
+                        self.cart.ram_bank = value & 0xf;
                     }
                 }
                 _ => (),
