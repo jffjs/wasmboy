@@ -1752,6 +1752,57 @@ impl CPU {
                     self.pc = mmu.read_word(self.pc);
                     self.m = 3;
                 }
+                Opcode::CALLNZnn => {
+                    if self.test_flag(Flag::Z) == 0 {
+                        self.sp = self.sp.wrapping_sub(2);
+                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
+                        self.pc = mmu.read_word(self.pc);
+                    } else {
+                        self.pc = self.pc.wrapping_add(2);
+                    }
+                    self.m = 3;
+                }
+                Opcode::PUSHBC => {
+                    self.sp = self.sp.wrapping_sub(1);
+                    mmu.write_byte(self.sp, self.b);
+                    self.sp = self.sp.wrapping_sub(1);
+                    mmu.write_byte(self.sp, self.c);
+                    self.m = 4;
+                }
+                Opcode::ADDAn => {
+                    let value = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::RST0 => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc);
+                    self.pc = 0;
+                    self.m = 8;
+                }
+                Opcode::RETZ => {
+                    if self.test_flag(Flag::Z) == 1 {
+                        self.pc = mmu.read_word(self.sp);
+                        self.sp = self.sp.wrapping_add(2);
+                    }
+                    self.m = 2;
+                }
+                Opcode::RET => {
+                    self.pc = mmu.read_word(self.sp);
+                    self.sp = self.sp.wrapping_add(2);
+                    self.m = 2;
+                }
                 _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),
