@@ -3111,6 +3111,657 @@ impl CPU {
                     self.a = value;
                     self.m = 2;
                 }
+                ExtOpcode::SRLB => {
+                    let mut value = self.b;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value >> 1;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.b = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRLC => {
+                    let mut value = self.c;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value >> 1;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.c = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRLD => {
+                    let mut value = self.d;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value >> 1;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.d = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRLE => {
+                    let mut value = self.e;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value >> 1;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.e = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRLH => {
+                    let mut value = self.h;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value >> 1;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.h = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRLL => {
+                    let mut value = self.l;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value >> 1;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.l = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRL_HL_ => {
+                    let mut value = mmu.read_byte(self.hl());
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value >> 1;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    mmu.write_byte(self.hl(), value);
+                    self.m = 4;
+                }
+                ExtOpcode::SRLA => {
+                    let mut value = self.a;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value >> 1;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.a = value;
+                    self.m = 2;
+                }
+                ExtOpcode::BIT0B => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(0, self.b) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT0C => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(0, self.c) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT0D => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(0, self.d) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT0E => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(0, self.e) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT0H => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(0, self.h) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT0L => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(0, self.l) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT0_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(0, mmu.read_byte(self.hl())) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 4;
+                }
+                ExtOpcode::BIT0A => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(0, self.a) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT1B => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(1, self.b) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT1C => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(1, self.c) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT1D => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(1, self.d) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT1E => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(1, self.e) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT1H => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(1, self.h) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT1L => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(1, self.l) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT1_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(1, mmu.read_byte(self.hl())) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 4;
+                }
+                ExtOpcode::BIT1A => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(1, self.a) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT2B => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(2, self.b) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT2C => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(2, self.c) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT2D => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(2, self.d) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT2E => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(2, self.e) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT2H => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(2, self.h) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT2L => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(2, self.l) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT2_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(2, mmu.read_byte(self.hl())) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 4;
+                }
+                ExtOpcode::BIT2A => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(2, self.a) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT3B => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(3, self.b) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT3C => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(3, self.c) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT3D => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(3, self.d) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT3E => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(3, self.e) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT3H => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(3, self.h) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT3L => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(3, self.l) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT3_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(3, mmu.read_byte(self.hl())) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 4;
+                }
+                ExtOpcode::BIT3A => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(3, self.a) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT4B => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(4, self.b) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT4C => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(4, self.c) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT4D => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(4, self.d) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT4E => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(4, self.e) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT4H => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(4, self.h) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT4L => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(4, self.l) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT4_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(4, mmu.read_byte(self.hl())) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 4;
+                }
+                ExtOpcode::BIT4A => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(4, self.a) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT5B => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(5, self.b) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT5C => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(5, self.c) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT5D => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(5, self.d) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT5E => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(5, self.e) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT5H => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(5, self.h) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT5L => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(5, self.l) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT5_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(5, mmu.read_byte(self.hl())) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 4;
+                }
+                ExtOpcode::BIT5A => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(5, self.a) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT6B => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(6, self.b) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT6C => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(6, self.c) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT6D => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(6, self.d) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT6E => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(6, self.e) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT6H => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(6, self.h) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT6L => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(6, self.l) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT6_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(6, mmu.read_byte(self.hl())) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 4;
+                }
+                ExtOpcode::BIT6A => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(6, self.a) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT7B => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(7, self.b) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT7C => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(7, self.c) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT7D => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(7, self.d) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT7E => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(7, self.e) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT7H => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(7, self.h) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT7L => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(7, self.l) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::BIT7_HL_ => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(7, mmu.read_byte(self.hl())) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 4;
+                }
+                ExtOpcode::BIT7A => {
+                    self.reset_flag(Flag::N);
+                    self.set_flag(Flag::H);
+                    if test_bit(7, self.a) == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                ExtOpcode::RES0B => {
+                    self.b &= 0xfe;
+                }
                 _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),
@@ -3119,6 +3770,10 @@ impl CPU {
         self.clock.m += self.m as u32;
         Ok(())
     }
+}
+
+fn test_bit(b: u8, n: u8) -> u8 {
+    (n & (1 << b)) >> b
 }
 
 fn check_half_carry_8(a: u8, b: u8) -> bool {
