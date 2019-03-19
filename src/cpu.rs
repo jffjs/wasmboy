@@ -18,6 +18,7 @@ pub struct CPU {
     t: u8,
     stop: bool,
     halt: bool,
+    interrupts_enabled: bool,
     clock: Clock,
 }
 
@@ -50,6 +51,7 @@ impl CPU {
             t: 0,
             stop: false,
             halt: false,
+            interrupts_enabled: false,
             clock: Clock { m: 0, t: 0 },
         }
     }
@@ -1801,6 +1803,475 @@ impl CPU {
                 Opcode::RET => {
                     self.pc = mmu.read_word(self.sp);
                     self.sp = self.sp.wrapping_add(2);
+                    self.m = 2;
+                }
+                Opcode::JPZnn => {
+                    if self.test_flag(Flag::Z) == 1 {
+                        self.pc = mmu.read_word(self.pc);
+                    }
+                    self.m = 3;
+                }
+                Opcode::ExtOps => return self.exec_ext(mmu),
+                Opcode::CALLZnn => {
+                    if self.test_flag(Flag::Z) == 1 {
+                        self.sp = self.sp.wrapping_sub(2);
+                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
+                        self.pc = mmu.read_word(self.pc);
+                    } else {
+                        self.pc = self.pc.wrapping_add(2);
+                    }
+                    self.m = 3;
+                }
+                Opcode::CALLnn => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc.wrapping_add(2));
+                    self.pc = mmu.read_word(self.pc);
+                    self.m = 3;
+                }
+                Opcode::ADCAn => {
+                    let carry = self.test_flag(Flag::C);
+                    let mut value = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    value = value.wrapping_add(carry);
+                    self.reset_flag(Flag::N);
+                    if check_half_carry_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if check_carry_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_add(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::RST8 => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc);
+                    self.pc = 0x8;
+                    self.m = 8;
+                }
+                Opcode::RETNC => {
+                    if self.test_flag(Flag::C) == 0 {
+                        self.pc = mmu.read_word(self.sp);
+                        self.sp = self.sp.wrapping_add(2);
+                    }
+                    self.m = 2;
+                }
+                Opcode::POPDE => {
+                    self.e = mmu.read_byte(self.sp);
+                    self.sp = self.sp.wrapping_add(1);
+                    self.d = mmu.read_byte(self.sp);
+                    self.sp = self.sp.wrapping_add(1);
+                    self.m = 3;
+                }
+                Opcode::JPNCnn => {
+                    if self.test_flag(Flag::C) == 0 {
+                        self.pc = mmu.read_word(self.pc);
+                    }
+                    self.m = 3;
+                }
+                Opcode::CALLNCnn => {
+                    if self.test_flag(Flag::C) == 0 {
+                        self.sp = self.sp.wrapping_sub(2);
+                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
+                        self.pc = mmu.read_word(self.pc);
+                    } else {
+                        self.pc = self.pc.wrapping_add(2);
+                    }
+                    self.m = 3;
+                }
+                Opcode::PUSHDE => {
+                    self.sp = self.sp.wrapping_sub(1);
+                    mmu.write_byte(self.sp, self.d);
+                    self.sp = self.sp.wrapping_sub(1);
+                    mmu.write_byte(self.sp, self.e);
+                    self.m = 4;
+                }
+                Opcode::SUBAn => {
+                    let value = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::RST10 => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc);
+                    self.pc = 0x10;
+                    self.m = 8;
+                }
+                Opcode::RETC => {
+                    if self.test_flag(Flag::C) == 1 {
+                        self.pc = mmu.read_word(self.sp);
+                        self.sp = self.sp.wrapping_add(2);
+                    }
+                    self.m = 2;
+                }
+                Opcode::RETI => {
+                    self.pc = mmu.read_word(self.sp);
+                    self.sp = self.sp.wrapping_add(2);
+                    self.interrupts_enabled = true;
+                }
+                Opcode::JPCnn => {
+                    if self.test_flag(Flag::C) == 1 {
+                        self.pc = mmu.read_word(self.pc);
+                    }
+                    self.m = 3;
+                }
+                Opcode::CALLCnn => {
+                    if self.test_flag(Flag::C) == 1 {
+                        self.sp = self.sp.wrapping_sub(2);
+                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
+                        self.pc = mmu.read_word(self.pc);
+                    } else {
+                        self.pc = self.pc.wrapping_add(2);
+                    }
+                    self.m = 3;
+                }
+                Opcode::SBCAn => {
+                    let carry = self.test_flag(Flag::C);
+                    let mut value = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    value = value.wrapping_add(carry);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    self.a = self.a.wrapping_sub(value);
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::RST18 => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc);
+                    self.pc = 0x18;
+                    self.m = 8;
+                }
+                Opcode::LDH_n_A => {
+                    let n = mmu.read_byte(self.pc);
+                    self.pc.wrapping_add(1);
+                    let addr = 0xff00 + (n as u16);
+                    mmu.write_byte(addr, self.a);
+                    self.m = 3;
+                }
+                Opcode::POPHL => {
+                    self.l = mmu.read_byte(self.sp);
+                    self.sp = self.sp.wrapping_add(1);
+                    self.h = mmu.read_byte(self.sp);
+                    self.sp = self.sp.wrapping_add(1);
+                    self.m = 3;
+                }
+                Opcode::LD_C_A => {
+                    let addr = 0xff00 + (self.c as u16);
+                    mmu.write_byte(addr, self.a);
+                    self.m = 2;
+                }
+                Opcode::PUSHHL => {
+                    self.sp = self.sp.wrapping_sub(1);
+                    mmu.write_byte(self.sp, self.h);
+                    self.sp = self.sp.wrapping_sub(1);
+                    mmu.write_byte(self.sp, self.l);
+                    self.m = 4;
+                }
+                Opcode::ANDn => {
+                    let n = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    self.a &= n;
+                    self.m = 2;
+                }
+                Opcode::RST20 => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc);
+                    self.pc = 0x20;
+                    self.m = 8;
+                }
+                Opcode::ADDSPn => {
+                    self.reset_flag(Flag::Z);
+                    self.reset_flag(Flag::N);
+                    let offset = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    if (offset & 0x80) == 0x80 {
+                        self.sp = self.sp.wrapping_sub((!offset + 1) as u16);
+                    } else {
+                        self.sp = self.sp.wrapping_add(offset as u16);
+                    }
+                    self.m = 4;
+                }
+                Opcode::JP_HL_ => {
+                    self.pc = self.hl();
+                    self.m = 1;
+                }
+                Opcode::LD_nn_A => {
+                    let addr = mmu.read_word(self.pc);
+                    self.pc = self.pc.wrapping_add(2);
+                    mmu.write_byte(addr, self.a);
+                    self.m = 4;
+                }
+                Opcode::XORn => {
+                    let n = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    self.a ^= n;
+                    self.m = 2;
+                }
+                Opcode::RST28 => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc);
+                    self.pc = 0x28;
+                    self.m = 8;
+                }
+                Opcode::LDHA_n_ => {
+                    let n = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    let addr = 0xff00 + (n as u16);
+                    self.a = mmu.read_byte(addr);
+                    self.m = 3;
+                }
+                Opcode::POPAF => {
+                    self.f = mmu.read_byte(self.sp);
+                    self.sp = self.sp.wrapping_add(1);
+                    self.a = mmu.read_byte(self.sp);
+                    self.sp = self.sp.wrapping_add(1);
+                    self.m = 3;
+                }
+                Opcode::DI => {
+                    self.interrupts_enabled = false;
+                    self.m = 1;
+                }
+                Opcode::PUSHAF => {
+                    self.sp = self.sp.wrapping_sub(1);
+                    mmu.write_byte(self.sp, self.a);
+                    self.sp = self.sp.wrapping_sub(1);
+                    mmu.write_byte(self.sp, self.f);
+                    self.m = 4;
+                }
+                Opcode::ORn => {
+                    let n = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    self.a |= n;
+                    self.m = 2;
+                }
+                Opcode::RST30 => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc);
+                    self.pc = 0x30;
+                    self.m = 8;
+                }
+                Opcode::LDHLSPn => {
+                    self.reset_flag(Flag::Z);
+                    self.reset_flag(Flag::N);
+                    let offset = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    let mut spn: u16;
+                    if (offset & 0x80) == 0x80 {
+                        spn = self.sp.wrapping_sub((!offset + 1) as u16);
+                    } else {
+                        spn = self.sp.wrapping_add(offset as u16);
+                    }
+                    self.h = (spn >> 8) as u8;
+                    self.l = (spn & 0xf) as u8;
+                    self.m = 3;
+                }
+                Opcode::LDSPHL => {
+                    self.sp = self.hl();
+                    self.m = 2;
+                }
+                Opcode::LDA_nn_ => {
+                    let addr = mmu.read_word(self.pc);
+                    self.pc = self.pc.wrapping_add(2);
+                    self.a = mmu.read_byte(addr);
+                    self.m = 4;
+                }
+                Opcode::EI => {
+                    self.interrupts_enabled = true;
+                    self.m = 1;
+                }
+                Opcode::CPn => {
+                    let value = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
+                    self.set_flag(Flag::N);
+                    if !check_half_borrow_8(self.a, value) {
+                        self.set_flag(Flag::H);
+                    }
+                    if !check_borrow_8(self.a, value) {
+                        self.set_flag(Flag::C);
+                    }
+                    let result = self.a.wrapping_sub(value);
+                    if result == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 2;
+                }
+                Opcode::RST38 => {
+                    self.sp = self.sp.wrapping_sub(2);
+                    mmu.write_word(self.sp, self.pc);
+                    self.pc = 0x38;
+                    self.m = 8;
+                }
+                _ => return Err("Unsupported operation."),
+            },
+            None => return Err("Unsupported operation."),
+        }
+
+        self.clock.m += self.m as u32;
+        Ok(())
+    }
+
+    fn exec_ext(&mut self, mmu: &mut MMU) -> Result<(), &str> {
+        let pc = self.pc;
+        self.pc = self.pc.wrapping_add(1);
+        println!("opcode: {:?}", Opcode::from_u8(mmu.read_byte(pc)).unwrap());
+        match ExtOpcode::from_u8(mmu.read_byte(pc)) {
+            Some(op) => match op {
+                ExtOpcode::RLCB => {
+                    let mut value = self.b;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (value & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value.rotate_left(1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.b = value;
+                    self.m = 2;
+                }
+                ExtOpcode::RLCC => {
+                    let mut value = self.c;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (value & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value.rotate_left(1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.c = value;
+                    self.m = 2;
+                }
+                ExtOpcode::RLCD => {
+                    let mut value = self.d;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (value & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value.rotate_left(1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.d = value;
+                    self.m = 2;
+                }
+                ExtOpcode::RLCE => {
+                    let mut value = self.e;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (value & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value.rotate_left(1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.e = value;
+                    self.m = 2;
+                }
+                ExtOpcode::RLCH => {
+                    let mut value = self.h;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (value & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value.rotate_left(1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.h = value;
+                    self.m = 2;
+                }
+                ExtOpcode::RLCL => {
+                    let mut value = self.l;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (value & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value.rotate_left(1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.l = value;
+                    self.m = 2;
+                }
+                ExtOpcode::RLC_HL_ => {
+                    let mut value = mmu.read_byte(self.hl());
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (value & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value.rotate_left(1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    mmu.write_byte(self.hl(), value);
+                    self.m = 4;
+                }
+                ExtOpcode::RLCA => {
+                    let mut value = self.a;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let b7 = (value & 0x80) >> 7;
+                    if b7 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = value.rotate_left(1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.a = value;
                     self.m = 2;
                 }
                 _ => return Err("Unsupported operation."),
