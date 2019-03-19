@@ -260,7 +260,7 @@ pub enum Opcode {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(FromPrimitive)]
+#[derive(Debug, FromPrimitive)]
 pub enum ExtOpcode {
     RLCB = 0x00,
     RLCC = 0x01,
@@ -277,7 +277,7 @@ pub enum ExtOpcode {
     RRCH = 0x0c,
     RRCL = 0x0d,
     RRC_HL_ = 0x0e,
-    RRC_A = 0x0f,
+    RRCA = 0x0f,
     RLB = 0x10,
     RLC = 0x11,
     RLD = 0x12,
