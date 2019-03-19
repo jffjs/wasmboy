@@ -2855,6 +2855,262 @@ impl CPU {
                     self.a = value;
                     self.m = 2;
                 }
+                ExtOpcode::SRAB => {
+                    let mut value = self.b;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let msb = value & 0x80;
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = msb + (value >> 1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.b = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRAC => {
+                    let mut value = self.c;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let msb = value & 0x80;
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = msb + (value >> 1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.c = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRAD => {
+                    let mut value = self.d;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let msb = value & 0x80;
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = msb + (value >> 1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.d = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRAE => {
+                    let mut value = self.e;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let msb = value & 0x80;
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = msb + (value >> 1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.e = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRAH => {
+                    let mut value = self.h;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let msb = value & 0x80;
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = msb + (value >> 1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.h = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRAL => {
+                    let mut value = self.l;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let msb = value & 0x80;
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = msb + (value >> 1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.l = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SRA_HL_ => {
+                    let mut value = mmu.read_byte(self.hl());
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let msb = value & 0x80;
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = msb + (value >> 1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.l = value;
+                    self.m = 4;
+                }
+                ExtOpcode::SRAA => {
+                    let mut value = self.a;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    let msb = value & 0x80;
+                    let b0 = value & 0x1;
+                    if b0 == 1 {
+                        self.set_flag(Flag::C);
+                    } else {
+                        self.reset_flag(Flag::C);
+                    }
+                    value = msb + (value >> 1);
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.a = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SWAPB => {
+                    let mut value = self.b;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    let upper = value >> 4;
+                    let lower = value & 0xf;
+                    value = (lower << 4) + upper;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.b = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SWAPC => {
+                    let mut value = self.c;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    let upper = value >> 4;
+                    let lower = value & 0xf;
+                    value = (lower << 4) + upper;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.c = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SWAPD => {
+                    let mut value = self.d;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    let upper = value >> 4;
+                    let lower = value & 0xf;
+                    value = (lower << 4) + upper;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.d = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SWAPE => {
+                    let mut value = self.e;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    let upper = value >> 4;
+                    let lower = value & 0xf;
+                    value = (lower << 4) + upper;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.e = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SWAPH => {
+                    let mut value = self.h;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    let upper = value >> 4;
+                    let lower = value & 0xf;
+                    value = (lower << 4) + upper;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.h = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SWAPL => {
+                    let mut value = self.l;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    let upper = value >> 4;
+                    let lower = value & 0xf;
+                    value = (lower << 4) + upper;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.l = value;
+                    self.m = 2;
+                }
+                ExtOpcode::SWAP_HL_ => {
+                    let mut value = mmu.read_byte(self.hl());
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    let upper = value >> 4;
+                    let lower = value & 0xf;
+                    value = (lower << 4) + upper;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    mmu.write_byte(self.hl(), value);
+                    self.m = 4;
+                }
+                ExtOpcode::SWAPA => {
+                    let mut value = self.a;
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
+                    let upper = value >> 4;
+                    let lower = value & 0xf;
+                    value = (lower << 4) + upper;
+                    if value == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.a = value;
+                    self.m = 2;
+                }
                 _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),

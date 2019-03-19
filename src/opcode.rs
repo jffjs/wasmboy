@@ -308,7 +308,7 @@ pub enum ExtOpcode {
     SRAE = 0x2b,
     SRAH = 0x2c,
     SRAL = 0x2d,
-    SRA_HL = 0x2e,
+    SRA_HL_ = 0x2e,
     SRAA = 0x2f,
     SWAPB = 0x30,
     SWAPC = 0x31,
