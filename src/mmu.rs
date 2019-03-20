@@ -1,8 +1,10 @@
 use cartridge::*;
 
+// TODO: need 0x1fff of e_ram for MBC5, but that breaks wasm
+// maybe break e_ram up into banks (16 banks of 0x2000)
 pub struct MMU {
     cart: Cartridge,
-    e_ram: [u8; 0x20000],
+    e_ram: [u8; 0x8000],
     w_ram: [u8; 0x2000],
     z_ram: [u8; 0x80],
 }
@@ -11,7 +13,7 @@ impl MMU {
     pub fn new(cart: Cartridge) -> MMU {
         MMU {
             cart,
-            e_ram: [0; 0x20000],
+            e_ram: [0; 0x8000],
             w_ram: [0; 0x2000],
             z_ram: [0; 0x80],
         }

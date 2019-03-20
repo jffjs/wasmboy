@@ -27,7 +27,7 @@ impl Gameboy {
     }
 
     #[wasm_bindgen]
-    pub fn dbg_cpu_snapshot(&mut self) -> CPU {
-        self.cpu.clone()
+    pub fn dbg_cpu_snapshot(&mut self) -> JsValue {
+        JsValue::from_serde(&self.cpu).unwrap()
     }
 }

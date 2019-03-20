@@ -55,7 +55,7 @@ impl CPU {
             t: 0,
             stop: false,
             halt: false,
-            interrupts_enabled: false,
+            interrupts_enabled: true,
             clock: Clock { m: 0, t: 0 },
         }
     }
