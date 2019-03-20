@@ -3,9 +3,12 @@ extern crate num;
 extern crate wasm_bindgen;
 #[macro_use]
 extern crate num_derive;
+#[macro_use]
+extern crate serde_derive;
 
 mod cartridge;
 mod cpu;
+pub mod gameboy;
 mod mmu;
 mod opcode;
 mod utils;

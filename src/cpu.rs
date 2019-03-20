@@ -1,8 +1,10 @@
 use mmu::MMU;
 use num::FromPrimitive;
 use opcode::*;
-use std::num::Wrapping;
+use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen]
+#[derive(Clone, Serialize)]
 pub struct CPU {
     pc: u16,
     sp: u16,
@@ -22,6 +24,8 @@ pub struct CPU {
     clock: Clock,
 }
 
+#[wasm_bindgen]
+#[derive(Clone, Serialize)]
 struct Clock {
     m: u32,
     t: u32,
@@ -54,6 +58,16 @@ impl CPU {
             interrupts_enabled: false,
             clock: Clock { m: 0, t: 0 },
         }
+    }
+
+    pub fn post_bios(&mut self) {
+        self.pc = 0x100;
+        self.sp = 0xfffe;
+        self.h = 0x01;
+        self.l = 0x4d;
+        self.c = 0x13;
+        self.e = 0xd8;
+        self.a = 0x01;
     }
 
     fn bc(&self) -> u16 {
@@ -95,7 +109,7 @@ impl CPU {
         }
     }
 
-    pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), &str> {
+    pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), String> {
         let pc = self.pc;
         self.pc = self.pc.wrapping_add(1);
         match Opcode::from_u8(mmu.read_byte(pc)) {
@@ -245,7 +259,7 @@ impl CPU {
                         self.stop = true;
                         self.m = 1;
                     } else {
-                        return Err("Invalid opcode - STOP should be 0x10");
+                        return Err("Invalid opcode - STOP should be 0x10".to_owned());
                     }
                 }
                 Opcode::LDDEnn => {
@@ -2172,14 +2186,14 @@ impl CPU {
                     self.m = 8;
                 }
             },
-            None => return Err("Unsupported operation."),
+            None => return Err("Unsupported operation.".to_owned()),
         }
 
         self.clock.m += self.m as u32;
         Ok(())
     }
 
-    fn exec_ext(&mut self, mmu: &mut MMU) -> Result<(), &str> {
+    fn exec_ext(&mut self, mmu: &mut MMU) -> Result<(), String> {
         let pc = self.pc;
         self.pc = self.pc.wrapping_add(1);
         match ExtOpcode::from_u8(mmu.read_byte(pc)) {
@@ -4297,7 +4311,7 @@ impl CPU {
                     self.m = 2;
                 }
             },
-            None => return Err("Unsupported operation."),
+            None => return Err("Unsupported operation.".to_owned()),
         }
 
         self.clock.m += self.m as u32;
@@ -4329,15 +4343,7 @@ fn check_half_borrow_8(a: u8, b: u8) -> bool {
     (a & 0xf) < (b & 0xf)
 }
 
-fn check_half_borrow_16(a: u16, b: u16) -> bool {
-    (a & 0xfff) < (b & 0xfff)
-}
-
 fn check_borrow_8(a: u8, b: u8) -> bool {
-    a < b
-}
-
-fn check_borrow_16(a: u16, b: u16) -> bool {
     a < b
 }
 
@@ -4402,18 +4408,6 @@ mod tests {
     fn test_check_borrow_8() {
         assert!(check_borrow_8(0x1, 0x2));
         assert!(!check_borrow_8(0xff, 0x1));
-    }
-
-    #[test]
-    fn test_check_half_borrow_16() {
-        assert!(check_half_borrow_16(0x100, 0xf00));
-        assert!(!check_half_borrow_16(0xfff, 0x1));
-    }
-
-    #[test]
-    fn test_check_borrow_16() {
-        assert!(check_borrow_16(0x1000, 0xf000));
-        assert!(!check_borrow_16(0xf000, 0x1000));
     }
 
     #[test]
