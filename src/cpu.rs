@@ -1486,6 +1486,16 @@ impl CPU {
                     }
                     self.m = 2;
                 }
+                Opcode::ANDA => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::C);
+                    self.set_flag(Flag::H);
+                    self.a &= self.a;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    }
+                    self.m = 1;
+                }
                 Opcode::XORB => {
                     self.reset_flag(Flag::N);
                     self.reset_flag(Flag::H);
@@ -2161,7 +2171,6 @@ impl CPU {
                     self.pc = 0x38;
                     self.m = 8;
                 }
-                _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),
         }
@@ -4287,7 +4296,6 @@ impl CPU {
                     self.a |= 0x80;
                     self.m = 2;
                 }
-                _ => return Err("Unsupported operation."),
             },
             None => return Err("Unsupported operation."),
         }
