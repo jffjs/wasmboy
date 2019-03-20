@@ -4482,4 +4482,49 @@ mod tests {
             .expect("CPU exec failed");
         assert_eq!(cpu.pc, 3);
     }
+
+    #[test]
+    fn test_bit_ops() {
+        let mut cpu = CPU::new();
+
+        cpu.c = 0b1101_0100;
+        cpu.exec(&mut mmu_stub(
+            Opcode::ExtOps as u8,
+            ExtOpcode::BIT3C as u8,
+            0,
+        ))
+        .expect("CPU exec failed");
+        assert_eq!(cpu.test_flag(Flag::Z), 1);
+
+        cpu.pc = 0;
+        cpu.reset_flag(Flag::Z);
+        cpu.d = 0b0010_0100;
+        cpu.exec(&mut mmu_stub(
+            Opcode::ExtOps as u8,
+            ExtOpcode::BIT2D as u8,
+            0,
+        ))
+        .expect("CPU exec failed");
+        assert_eq!(cpu.test_flag(Flag::Z), 0);
+
+        cpu.pc = 0;
+        cpu.a = 0b0010_0100;
+        cpu.exec(&mut mmu_stub(
+            Opcode::ExtOps as u8,
+            ExtOpcode::SET7A as u8,
+            0,
+        ))
+        .expect("CPU exec failed");
+        assert_eq!(cpu.a, 0b1010_0100);
+
+        cpu.pc = 0;
+        cpu.l = 0b0011_0110;
+        cpu.exec(&mut mmu_stub(
+            Opcode::ExtOps as u8,
+            ExtOpcode::RES4L as u8,
+            0,
+        ))
+        .expect("CPU exec failed");
+        assert_eq!(cpu.l, 0b0010_0110);
+    }
 }
