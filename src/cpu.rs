@@ -3761,6 +3761,531 @@ impl CPU {
                 }
                 ExtOpcode::RES0B => {
                     self.b &= 0xfe;
+                    self.m = 2;
+                }
+                ExtOpcode::RES0C => {
+                    self.c &= 0xfe;
+                    self.m = 2;
+                }
+                ExtOpcode::RES0D => {
+                    self.d &= 0xfe;
+                    self.m = 2;
+                }
+                ExtOpcode::RES0E => {
+                    self.e &= 0xfe;
+                    self.m = 2;
+                }
+                ExtOpcode::RES0H => {
+                    self.h &= 0xfe;
+                    self.m = 2;
+                }
+                ExtOpcode::RES0L => {
+                    self.l &= 0xfe;
+                    self.m = 2;
+                }
+                ExtOpcode::RES0_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value & 0xfe);
+                    self.m = 4;
+                }
+                ExtOpcode::RES0A => {
+                    self.a &= 0xfe;
+                    self.m = 2;
+                }
+                ExtOpcode::RES1B => {
+                    self.b &= 0xfd;
+                    self.m = 2;
+                }
+                ExtOpcode::RES1C => {
+                    self.c &= 0xfd;
+                    self.m = 2;
+                }
+                ExtOpcode::RES1D => {
+                    self.d &= 0xfd;
+                    self.m = 2;
+                }
+                ExtOpcode::RES1E => {
+                    self.e &= 0xfd;
+                    self.m = 2;
+                }
+                ExtOpcode::RES1H => {
+                    self.h &= 0xfd;
+                    self.m = 2;
+                }
+                ExtOpcode::RES1L => {
+                    self.l &= 0xfd;
+                    self.m = 2;
+                }
+                ExtOpcode::RES1_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value & 0xfd);
+                    self.m = 4;
+                }
+                ExtOpcode::RES1A => {
+                    self.a &= 0xfd;
+                    self.m = 2;
+                }
+                ExtOpcode::RES2B => {
+                    self.b &= 0xfb;
+                    self.m = 2;
+                }
+                ExtOpcode::RES2C => {
+                    self.c &= 0xfb;
+                    self.m = 2;
+                }
+                ExtOpcode::RES2D => {
+                    self.d &= 0xfb;
+                    self.m = 2;
+                }
+                ExtOpcode::RES2E => {
+                    self.e &= 0xfb;
+                    self.m = 2;
+                }
+                ExtOpcode::RES2H => {
+                    self.h &= 0xfb;
+                    self.m = 2;
+                }
+                ExtOpcode::RES2L => {
+                    self.l &= 0xfb;
+                    self.m = 2;
+                }
+                ExtOpcode::RES2_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value & 0xfb);
+                    self.m = 4;
+                }
+                ExtOpcode::RES2A => {
+                    self.a &= 0xfb;
+                    self.m = 2;
+                }
+                ExtOpcode::RES3B => {
+                    self.b &= 0xf7;
+                    self.m = 2;
+                }
+                ExtOpcode::RES3C => {
+                    self.c &= 0xf7;
+                    self.m = 2;
+                }
+                ExtOpcode::RES3D => {
+                    self.d &= 0xf7;
+                    self.m = 2;
+                }
+                ExtOpcode::RES3E => {
+                    self.e &= 0xf7;
+                    self.m = 2;
+                }
+                ExtOpcode::RES3H => {
+                    self.h &= 0xf7;
+                    self.m = 2;
+                }
+                ExtOpcode::RES3L => {
+                    self.l &= 0xf7;
+                    self.m = 2;
+                }
+                ExtOpcode::RES3_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value & 0xf7);
+                    self.m = 4;
+                }
+                ExtOpcode::RES3A => {
+                    self.a &= 0xf7;
+                    self.m = 2;
+                }
+                ExtOpcode::RES4B => {
+                    self.b &= 0xef;
+                    self.m = 2;
+                }
+                ExtOpcode::RES4C => {
+                    self.c &= 0xef;
+                    self.m = 2;
+                }
+                ExtOpcode::RES4D => {
+                    self.d &= 0xef;
+                    self.m = 2;
+                }
+                ExtOpcode::RES4E => {
+                    self.e &= 0xef;
+                    self.m = 2;
+                }
+                ExtOpcode::RES4H => {
+                    self.h &= 0xef;
+                    self.m = 2;
+                }
+                ExtOpcode::RES4L => {
+                    self.l &= 0xef;
+                    self.m = 2;
+                }
+                ExtOpcode::RES4_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value & 0xef);
+                    self.m = 4;
+                }
+                ExtOpcode::RES4A => {
+                    self.a &= 0xef;
+                    self.m = 2;
+                }
+                ExtOpcode::RES5B => {
+                    self.b &= 0xdf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES5C => {
+                    self.c &= 0xdf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES5D => {
+                    self.d &= 0xdf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES5E => {
+                    self.e &= 0xdf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES5H => {
+                    self.h &= 0xdf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES5L => {
+                    self.l &= 0xdf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES5_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value & 0xdf);
+                    self.m = 4;
+                }
+                ExtOpcode::RES5A => {
+                    self.a &= 0xdf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES6B => {
+                    self.b &= 0xbf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES6C => {
+                    self.c &= 0xbf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES6D => {
+                    self.d &= 0xbf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES6E => {
+                    self.e &= 0xbf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES6H => {
+                    self.h &= 0xbf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES6L => {
+                    self.l &= 0xbf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES6_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value & 0xbf);
+                    self.m = 4;
+                }
+                ExtOpcode::RES6A => {
+                    self.a &= 0xbf;
+                    self.m = 2;
+                }
+                ExtOpcode::RES7B => {
+                    self.b &= 0x7f;
+                    self.m = 2;
+                }
+                ExtOpcode::RES7C => {
+                    self.c &= 0x7f;
+                    self.m = 2;
+                }
+                ExtOpcode::RES7D => {
+                    self.d &= 0x7f;
+                    self.m = 2;
+                }
+                ExtOpcode::RES7E => {
+                    self.e &= 0x7f;
+                    self.m = 2;
+                }
+                ExtOpcode::RES7H => {
+                    self.h &= 0x7f;
+                    self.m = 2;
+                }
+                ExtOpcode::RES7L => {
+                    self.l &= 0x7f;
+                    self.m = 2;
+                }
+                ExtOpcode::RES7_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value & 0x7f);
+                    self.m = 4;
+                }
+                ExtOpcode::RES7A => {
+                    self.a &= 0x7f;
+                    self.m = 2;
+                }
+                ExtOpcode::SET0B => {
+                    self.b |= 0x01;
+                    self.m = 2;
+                }
+                ExtOpcode::SET0C => {
+                    self.c |= 0x01;
+                    self.m = 2;
+                }
+                ExtOpcode::SET0D => {
+                    self.d |= 0x01;
+                    self.m = 2;
+                }
+                ExtOpcode::SET0E => {
+                    self.e |= 0x01;
+                    self.m = 2;
+                }
+                ExtOpcode::SET0H => {
+                    self.h |= 0x01;
+                    self.m = 2;
+                }
+                ExtOpcode::SET0L => {
+                    self.l |= 0x01;
+                    self.m = 2;
+                }
+                ExtOpcode::SET0_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value | 0x01);
+                    self.m = 4;
+                }
+                ExtOpcode::SET0A => {
+                    self.a |= 0x01;
+                    self.m = 2;
+                }
+                ExtOpcode::SET1B => {
+                    self.b |= 0x02;
+                    self.m = 2;
+                }
+                ExtOpcode::SET1C => {
+                    self.c |= 0x02;
+                    self.m = 2;
+                }
+                ExtOpcode::SET1D => {
+                    self.d |= 0x02;
+                    self.m = 2;
+                }
+                ExtOpcode::SET1E => {
+                    self.e |= 0x02;
+                    self.m = 2;
+                }
+                ExtOpcode::SET1H => {
+                    self.h |= 0x02;
+                    self.m = 2;
+                }
+                ExtOpcode::SET1L => {
+                    self.l |= 0x02;
+                    self.m = 2;
+                }
+                ExtOpcode::SET1_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value | 0x02);
+                    self.m = 4;
+                }
+                ExtOpcode::SET1A => {
+                    self.a |= 0x02;
+                    self.m = 2;
+                }
+                ExtOpcode::SET2B => {
+                    self.b |= 0x04;
+                    self.m = 2;
+                }
+                ExtOpcode::SET2C => {
+                    self.c |= 0x04;
+                    self.m = 2;
+                }
+                ExtOpcode::SET2D => {
+                    self.d |= 0x04;
+                    self.m = 2;
+                }
+                ExtOpcode::SET2E => {
+                    self.e |= 0x04;
+                    self.m = 2;
+                }
+                ExtOpcode::SET2H => {
+                    self.h |= 0x04;
+                    self.m = 2;
+                }
+                ExtOpcode::SET2L => {
+                    self.l |= 0x04;
+                    self.m = 2;
+                }
+                ExtOpcode::SET2_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value | 0x04);
+                    self.m = 4;
+                }
+                ExtOpcode::SET2A => {
+                    self.a |= 0x04;
+                    self.m = 2;
+                }
+                ExtOpcode::SET3B => {
+                    self.b |= 0x08;
+                    self.m = 2;
+                }
+                ExtOpcode::SET3C => {
+                    self.c |= 0x08;
+                    self.m = 2;
+                }
+                ExtOpcode::SET3D => {
+                    self.d |= 0x08;
+                    self.m = 2;
+                }
+                ExtOpcode::SET3E => {
+                    self.e |= 0x08;
+                    self.m = 2;
+                }
+                ExtOpcode::SET3H => {
+                    self.h |= 0x08;
+                    self.m = 2;
+                }
+                ExtOpcode::SET3L => {
+                    self.l |= 0x08;
+                    self.m = 2;
+                }
+                ExtOpcode::SET3_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value | 0x08);
+                    self.m = 4;
+                }
+                ExtOpcode::SET3A => {
+                    self.a |= 0x08;
+                    self.m = 2;
+                }
+                ExtOpcode::SET4B => {
+                    self.b |= 0x10;
+                    self.m = 2;
+                }
+                ExtOpcode::SET4C => {
+                    self.c |= 0x10;
+                    self.m = 2;
+                }
+                ExtOpcode::SET4D => {
+                    self.d |= 0x10;
+                    self.m = 2;
+                }
+                ExtOpcode::SET4E => {
+                    self.e |= 0x10;
+                    self.m = 2;
+                }
+                ExtOpcode::SET4H => {
+                    self.h |= 0x10;
+                    self.m = 2;
+                }
+                ExtOpcode::SET4L => {
+                    self.l |= 0x10;
+                    self.m = 2;
+                }
+                ExtOpcode::SET4_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value | 0x10);
+                    self.m = 4;
+                }
+                ExtOpcode::SET4A => {
+                    self.a |= 0x10;
+                    self.m = 2;
+                }
+                ExtOpcode::SET5B => {
+                    self.b |= 0x20;
+                    self.m = 2;
+                }
+                ExtOpcode::SET5C => {
+                    self.c |= 0x20;
+                    self.m = 2;
+                }
+                ExtOpcode::SET5D => {
+                    self.d |= 0x20;
+                    self.m = 2;
+                }
+                ExtOpcode::SET5E => {
+                    self.e |= 0x20;
+                    self.m = 2;
+                }
+                ExtOpcode::SET5H => {
+                    self.h |= 0x20;
+                    self.m = 2;
+                }
+                ExtOpcode::SET5L => {
+                    self.l |= 0x20;
+                    self.m = 2;
+                }
+                ExtOpcode::SET5_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value | 0x20);
+                    self.m = 4;
+                }
+                ExtOpcode::SET5A => {
+                    self.a |= 0x20;
+                    self.m = 2;
+                }
+                ExtOpcode::SET6B => {
+                    self.b |= 0x40;
+                    self.m = 2;
+                }
+                ExtOpcode::SET6C => {
+                    self.c |= 0x40;
+                    self.m = 2;
+                }
+                ExtOpcode::SET6D => {
+                    self.d |= 0x40;
+                    self.m = 2;
+                }
+                ExtOpcode::SET6E => {
+                    self.e |= 0x40;
+                    self.m = 2;
+                }
+                ExtOpcode::SET6H => {
+                    self.h |= 0x40;
+                    self.m = 2;
+                }
+                ExtOpcode::SET6L => {
+                    self.l |= 0x40;
+                    self.m = 2;
+                }
+                ExtOpcode::SET6_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value | 0x40);
+                    self.m = 4;
+                }
+                ExtOpcode::SET6A => {
+                    self.a |= 0x40;
+                    self.m = 2;
+                }
+                ExtOpcode::SET7B => {
+                    self.b |= 0x80;
+                    self.m = 2;
+                }
+                ExtOpcode::SET7C => {
+                    self.c |= 0x80;
+                    self.m = 2;
+                }
+                ExtOpcode::SET7D => {
+                    self.d |= 0x80;
+                    self.m = 2;
+                }
+                ExtOpcode::SET7E => {
+                    self.e |= 0x80;
+                    self.m = 2;
+                }
+                ExtOpcode::SET7H => {
+                    self.h |= 0x80;
+                    self.m = 2;
+                }
+                ExtOpcode::SET7L => {
+                    self.l |= 0x80;
+                    self.m = 2;
+                }
+                ExtOpcode::SET7_HL_ => {
+                    let value = mmu.read_byte(self.hl());
+                    mmu.write_byte(self.hl(), value | 0x80);
+                    self.m = 4;
+                }
+                ExtOpcode::SET7A => {
+                    self.a |= 0x80;
+                    self.m = 2;
                 }
                 _ => return Err("Unsupported operation."),
             },
