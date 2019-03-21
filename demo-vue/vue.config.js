@@ -3,6 +3,7 @@ const WasmPackPlugin = require('@wasm-tool/wasm-pack-plugin');
 
 module.exports = {
   configureWebpack: {
+    entry: './src/bootstrap.js',
     plugins: [
       new WasmPackPlugin({
         crateDirectory: path.resolve(__dirname, '..')
