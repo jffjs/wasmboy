@@ -1,12 +1,17 @@
 <template>
   <div id="app">
-    <h1>I'm a Vue app</h1>
+    <HexEditor></HexEditor>
   </div>
 </template>
 
 <script>
+import HexEditor from "./components/HexEditor.vue";
+
 export default {
-  name: "app"
+  name: "app",
+  components: {
+    HexEditor
+  }
 };
 </script>
 
