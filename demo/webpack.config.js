@@ -1,3 +1,5 @@
+const VueLoaderPlugin = require('vue-loader/lib/plugin');
+
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
@@ -13,11 +15,27 @@ module.exports = {
   devServer: {
     contentBase: dist
   },
+  module: {
+    rules: [
+      {
+        test: /\.vue$/,
+        loader: 'vue-loader'
+      },
+      {
+        test: /\.js$/,
+        loader: 'babel-loader'
+      },
+      {
+        test: /\.css$/,
+        use: ['css-loader']
+      }
+    ]
+  },
   plugins: [
     new HtmlWebpackPlugin({
       template: 'index.html'
     }),
-
+    new VueLoaderPlugin(),
     new WasmPackPlugin({
       crateDirectory: path.resolve(__dirname, '..')
       // WasmPackPlugin defaults to compiling in "dev" profile. To change that, use forceMode: 'release':

@@ -1,3 +1,12 @@
+import Vue from 'vue';
+import App from './App.vue';
+
+Vue.config.productionTip = false;
+
+new Vue({
+  render: h => h(App)
+}).$mount('#app');
+
 import { Gameboy } from '../../pkg';
 
 const rom = new Uint8Array(1000);
