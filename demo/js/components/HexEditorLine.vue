@@ -13,6 +13,8 @@
 </template>
 
 <script>
+import debounce from "lodash-es/debounce";
+
 function toHex(val, pad) {
   return val.toString(16).padStart(pad, "0");
 }
@@ -28,19 +30,22 @@ export default {
     }
   },
   methods: {
-    updateByte: function(event, index) {
+    updateByte: debounce(function(event, index) {
       const currentValue = toHex(this.bytes[index], 2);
       const newValue = event.target.innerText;
-      if (newValue.length > 2) {
+      const invalidHex = newValue ? !newValue.match(/^[\da-f]+$/i) : false;
+      if (newValue.length > 2 || invalidHex) {
         event.target.innerText = currentValue;
         return;
+      } else if (!newValue) {
+        return;
       }
-      const byte = parseInt(event.target.innerText, 16);
+      const byte = parseInt(newValue, 16);
       if (byte != NaN) {
-        this.bytes.splice(index, 1, byte & 0xff);
-        console.log(this.bytes);
+        const address = this.address + index;
+        this.$emit("update-byte", { byte, address });
       }
-    },
+    }, 250),
     padByte: function(event) {
       event.target.innerText = toHex(event.target.innerText, 2);
     }
@@ -61,11 +66,11 @@ export default {
 
 .address {
   border-right: solid 1px #000;
-  padding-right: 2px;
-  margin-right: 2px;
+  padding-right: 4px;
+  margin-right: 4px;
 }
 
 .byte {
-  padding: 0 2px;
+  padding: 0 4px;
 }
 </style>

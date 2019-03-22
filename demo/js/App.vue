@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <HexEditor :address="0" :bytes="rom"></HexEditor>
+    <HexEditor :editable="true" :startAddress="0" :bytes="rom"></HexEditor>
   </div>
 </template>
 
