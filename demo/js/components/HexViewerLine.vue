@@ -20,7 +20,7 @@ function toHex(val, pad) {
 }
 
 export default {
-  name: "HexEditorLine",
+  name: "HexViewerLine",
   props: {
     address: Number,
     bytes: Array,

@@ -1,23 +1,23 @@
 <template>
   <div>
-    <HexEditorLine
+    <HexViewerLine
       v-for="(chunk, index) in byteChunks"
       :address="bytesPerLine * index"
       :bytes="chunk"
       :key="index"
       :editable="editable"
       @update-byte="updateByte"
-    ></HexEditorLine>
+    ></HexViewerLine>
   </div>
 </template>
 
 <script>
-import HexEditorLine from "./HexEditorLine.vue";
+import HexViewerLine from "./HexViewerLine.vue";
 import chunk from "lodash-es/chunk";
 
 export default {
   name: "HexEditor",
-  components: { HexEditorLine },
+  components: { HexViewerLine },
   props: {
     startAddress: {
       type: Number,
