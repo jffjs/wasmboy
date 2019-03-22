@@ -13,11 +13,8 @@
 </template>
 
 <script>
+import { toHex } from "../utils";
 import debounce from "lodash-es/debounce";
-
-function toHex(val, pad) {
-  return val.toString(16).padStart(pad, "0");
-}
 
 export default {
   name: "HexViewerLine",
@@ -51,9 +48,7 @@ export default {
     }
   },
   filters: {
-    hex: function(value, pad) {
-      return toHex(value, pad);
-    }
+    hex: toHex
   }
 };
 </script>

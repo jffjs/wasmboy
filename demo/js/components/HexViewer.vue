@@ -2,7 +2,7 @@
   <div>
     <HexViewerLine
       v-for="(chunk, index) in byteChunks"
-      :address="bytesPerLine * index"
+      :address="startAddress + bytesPerLine * index"
       :bytes="chunk"
       :key="index"
       :editable="editable"
