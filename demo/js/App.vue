@@ -1,16 +1,21 @@
 <template>
   <div id="app">
-    <HexEditor></HexEditor>
+    <HexEditor :address="0" :bytes="rom"></HexEditor>
   </div>
 </template>
 
 <script>
+import range from "lodash-es/range";
 import HexEditor from "./components/HexEditor.vue";
 
 export default {
   name: "app",
   components: {
     HexEditor
+  },
+  data: function() {
+    const rom = range(0, 256);
+    return { rom: rom };
   }
 };
 </script>

@@ -1,15 +1,34 @@
 <template>
   <div>
-    <HexEditorLine :address="0" :bytes="[1, 2, 3, 4]"></HexEditorLine>
-    <HexEditorLine :address="4" :bytes="[34, 52, 13, 44]"></HexEditorLine>
+    <HexEditorLine
+      v-for="(chunk, index) in byteChunks"
+      :address="bytesPerLine * index"
+      :bytes="chunk"
+      :key="index"
+    ></HexEditorLine>
   </div>
 </template>
 
 <script>
 import HexEditorLine from "./HexEditorLine.vue";
+import chunk from "lodash-es/chunk";
+
 export default {
   name: "HexEditor",
-  components: { HexEditorLine }
+  components: { HexEditorLine },
+  props: {
+    address: Number,
+    bytes: Array,
+    bytesPerLine: {
+      type: Number,
+      default: 8
+    }
+  },
+  computed: {
+    byteChunks: function() {
+      return chunk(this.bytes, this.bytesPerLine);
+    }
+  }
 };
 </script>
 
