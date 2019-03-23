@@ -1,13 +1,16 @@
 <template>
   <div id="app">
     <div class="debugger">
-      <HexViewer :editable="true" :startAddress="0x100" :bytes="rom"></HexViewer>
+      <HexViewer :editable="true" :startAddress="0x100" :pc="cpuSnapshot.pc" :bytes="rom"></HexViewer>
       <CpuSnapshot id="cpu-snapshot" :snapshot="cpuSnapshot"></CpuSnapshot>
+      <button @click="step()">Step</button>
+      <button @click="reset()">Reset</button>
     </div>
   </div>
 </template>
 
 <script>
+import Vue from "vue";
 import range from "lodash-es/range";
 import CpuSnapshot from "./components/CpuSnapshot.vue";
 import HexViewer from "./components/HexViewer.vue";
@@ -27,11 +30,18 @@ export default {
     HexViewer
   },
   data: function() {
-    return { rom: Array.from(rom.slice(0x100, 0x150)), gb };
+    return {
+      rom: Array.from(rom),
+      cpuSnapshot: gb.dbg_cpu_snapshot()
+    };
   },
-  computed: {
-    cpuSnapshot: function() {
-      return this.gb.dbg_cpu_snapshot();
+  methods: {
+    step: function() {
+      gb.dbg_step();
+      this.cpuSnapshot = gb.dbg_cpu_snapshot();
+    },
+    reset: function() {
+      // gb = new Gameboy(Uint8Array.from(this.rom));
     }
   }
 };

@@ -3,6 +3,7 @@
     <div class="address">{{address | hex(4)}}</div>
     <div
       class="byte"
+      :class="{pc: pc == address + index}"
       :contenteditable="editable"
       @input="updateByte($event, index)"
       @blur="padByte"
@@ -20,6 +21,7 @@ export default {
   name: "HexViewerLine",
   props: {
     address: Number,
+    pc: Number,
     bytes: Array,
     editable: {
       type: Boolean,
@@ -67,5 +69,8 @@ export default {
 
 .byte {
   padding: 0 4px;
+}
+.byte.pc {
+  font-weight: bold;
 }
 </style>
