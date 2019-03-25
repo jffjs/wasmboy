@@ -1,3 +1,3 @@
 import('./index').then(() => {
-  console.log('WebAssembly module loaded...');
+  console.log('wasmboy loaded...');
 });

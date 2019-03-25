@@ -19,14 +19,14 @@ import Vue from "vue";
 import range from "lodash-es/range";
 import CpuSnapshot from "./components/CpuSnapshot.vue";
 import HexViewer from "./components/HexViewer.vue";
-import { Gameboy } from "../../pkg";
+import { Emulator } from "../../pkg";
 
 let rom = new Uint8Array(1000);
 rom[0x100] = 0x04;
 rom[0x101] = 0x04;
 rom[0x102] = 0x3d;
 
-let gb = new Gameboy(rom, true);
+let gb = new Emulator(rom, true);
 
 export default {
   name: "app",
@@ -47,7 +47,7 @@ export default {
         const reader = new FileReader();
         reader.onload = readerEvent => {
           rom = new Uint8Array(readerEvent.target.result);
-          gb = new Gameboy(rom, true);
+          gb = new Emulator(rom, true);
           this.rom = Array.from(rom);
         };
         reader.readAsArrayBuffer(files[0]);
@@ -58,7 +58,7 @@ export default {
       this.cpuSnapshot = gb.dbg_cpu_snapshot();
     },
     reset: function() {
-      gb = new Gameboy(Uint8Array.from(this.rom), true);
+      gb = new Emulator(Uint8Array.from(this.rom), true);
       this.cpuSnapshot = gb.dbg_cpu_snapshot();
     }
   }

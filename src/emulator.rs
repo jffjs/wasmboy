@@ -6,21 +6,21 @@ use std::ops::{BitAnd, Not};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub struct Gameboy {
+pub struct Emulator {
     debug: bool,
     cpu: CPU,
     mmu: MMU,
 }
 
 #[wasm_bindgen]
-impl Gameboy {
+impl Emulator {
     #[wasm_bindgen(constructor)]
-    pub fn new(rom: &[u8], debug: bool) -> Gameboy {
+    pub fn new(rom: &[u8], debug: bool) -> Emulator {
         let cart = Cartridge::new(rom);
         let mmu = MMU::new(cart);
         let mut cpu = CPU::new();
         cpu.post_bios();
-        Gameboy { cpu, mmu, debug }
+        Emulator { cpu, mmu, debug }
     }
 
     #[wasm_bindgen]

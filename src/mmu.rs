@@ -1,5 +1,5 @@
 use cartridge::*;
-use gameboy::IntFlag;
+use emulator::IntFlag;
 
 // TODO: need 0x1fff of e_ram for MBC5, but that breaks wasm
 // maybe break e_ram up into banks (16 banks of 0x2000)

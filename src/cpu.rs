@@ -1,4 +1,4 @@
-use gameboy::IntFlag;
+use emulator::IntFlag;
 use mmu::MMU;
 use num::FromPrimitive;
 use opcode::*;

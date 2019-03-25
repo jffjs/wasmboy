@@ -8,7 +8,7 @@ extern crate serde_derive;
 
 mod cartridge;
 mod cpu;
-pub mod gameboy;
+pub mod emulator;
 mod mmu;
 mod opcode;
 mod utils;
