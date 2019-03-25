@@ -1,3 +1,4 @@
+use gameboy::IntFlag;
 use mmu::MMU;
 use num::FromPrimitive;
 use opcode::*;
@@ -18,9 +19,9 @@ pub struct CPU {
     l: u8,
     m: u8,
     t: u8,
-    stop: bool,
-    halt: bool,
-    interrupts_enabled: bool,
+    pub ime: bool,
+    pub stop: bool,
+    pub halt: bool,
     clock: Clock,
 }
 
@@ -55,7 +56,7 @@ impl CPU {
             t: 0,
             stop: false,
             halt: false,
-            interrupts_enabled: true,
+            ime: true,
             clock: Clock { m: 0, t: 0 },
         }
     }
@@ -68,6 +69,21 @@ impl CPU {
         self.c = 0x13;
         self.e = 0xd8;
         self.a = 0x01;
+    }
+
+    pub fn clock_m(&self) -> u32 {
+        self.clock.m
+    }
+
+    pub fn halt(&mut self) -> bool {
+        if self.halt {
+            self.clock.m += 1;
+        }
+        self.halt
+    }
+
+    pub fn stop(&self) -> bool {
+        self.stop
     }
 
     fn bc(&self) -> u16 {
@@ -107,6 +123,19 @@ impl CPU {
             Flag::H => self.f &= 0xdf,
             Flag::C => self.f &= 0xef,
         }
+    }
+
+    pub fn handle_interrupt(&mut self, iflag: IntFlag, mmu: &mut MMU) {
+        self.sp = self.sp.wrapping_sub(2);
+        mmu.write_word(self.sp, self.pc);
+        match iflag {
+            IntFlag::Vblank => self.pc = 0x40,
+            IntFlag::LCDC => self.pc = 0x40,
+            IntFlag::TimerOverflow => self.pc = 0x50,
+            IntFlag::SerialIO => self.pc = 0x58,
+            IntFlag::JoyPad => self.pc = 0x60,
+        }
+        self.clock.m += 8;
     }
 
     pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), String> {
@@ -1983,7 +2012,7 @@ impl CPU {
                 Opcode::RETI => {
                     self.pc = mmu.read_word(self.sp);
                     self.sp = self.sp.wrapping_add(2);
-                    self.interrupts_enabled = true;
+                    self.ime = true;
                 }
                 Opcode::JPCnn => {
                     if self.test_flag(Flag::C) == 1 {
@@ -2112,7 +2141,7 @@ impl CPU {
                     self.m = 3;
                 }
                 Opcode::DI => {
-                    self.interrupts_enabled = false;
+                    self.ime = false;
                     self.m = 1;
                 }
                 Opcode::PUSHAF => {
@@ -2160,7 +2189,7 @@ impl CPU {
                     self.m = 4;
                 }
                 Opcode::EI => {
-                    self.interrupts_enabled = true;
+                    self.ime = true;
                     self.m = 1;
                 }
                 Opcode::CPn => {

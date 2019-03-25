@@ -1,4 +1,5 @@
 use cartridge::*;
+use gameboy::IntFlag;
 
 // TODO: need 0x1fff of e_ram for MBC5, but that breaks wasm
 // maybe break e_ram up into banks (16 banks of 0x2000)
@@ -7,6 +8,8 @@ pub struct MMU {
     e_ram: [u8; 0x8000],
     w_ram: [u8; 0x2000],
     z_ram: [u8; 0x80],
+    ie: u8,    // interrupt enable
+    iflag: u8, // if - interrupt flags
 }
 
 impl MMU {
@@ -16,7 +19,21 @@ impl MMU {
             e_ram: [0; 0x8000],
             w_ram: [0; 0x2000],
             z_ram: [0; 0x80],
+            ie: 0,
+            iflag: 0,
         }
+    }
+
+    pub fn ie(&self) -> u8 {
+        self.ie
+    }
+
+    pub fn iflag(&self) -> u8 {
+        self.iflag
+    }
+
+    pub fn reset_iflag(&mut self, iflag: IntFlag) {
+        self.iflag &= !iflag;
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
@@ -65,11 +82,23 @@ impl MMU {
                     }
                 }
                 0xf => {
-                    if addr >= 0xff80 {
+                    if addr == 0xffff {
+                        self.ie
+                    } else if addr >= 0xff80 {
                         self.z_ram[(addr & 0x7f) as usize]
                     } else {
-                        0
-                        // TODO: I/O control handling
+                        match addr & 0xf0 {
+                            0x00 => match addr & 0xf {
+                                0x0 => 0,                   // TODO: joypad
+                                0x1 | 0x2 => 0,             // TODO: Serial I/O
+                                0x4 | 0x5 | 0x6 | 0x7 => 0, // TODO: Timer
+                                0xf => self.iflag,
+                                _ => 0,
+                            },
+                            0x10 | 0x20 | 0x30 => 0, // TODO: Sound registers
+                            0x40 | 0x50 | 0x60 | 0x70 => 0, // TODO: GPU registers
+                            _ => 0,
+                        }
                     }
                 }
                 _ => 0,
@@ -207,11 +236,22 @@ impl MMU {
                     // Zeropage RAM, I/O, interrupts
                     0xf => {
                         if addr == 0xffff {
-                            // TODO
-                        } else if addr > 0xff7f {
+                            self.ie = value;
+                        } else if addr >= 0xff80 {
                             self.z_ram[(addr & 0x7f) as usize] = value;
                         } else {
-                            // TODO
+                            match addr & 0xf0 {
+                                0x00 => match addr & 0xf {
+                                    0x0 => (),                   // TODO: joypad
+                                    0x1 | 0x2 => (),             // TODO: Serial I/O
+                                    0x4 | 0x5 | 0x6 | 0x7 => (), // TODO: Timer
+                                    0xf => self.iflag = value,
+                                    _ => (),
+                                },
+                                0x10 | 0x20 | 0x30 => (), // TODO: Sound registers
+                                0x40 | 0x50 | 0x60 | 0x70 => (), // TODO: GPU registers
+                                _ => (),
+                            }
                         }
                     }
                     // Echo RAM
