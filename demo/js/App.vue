@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="debugger">
-      <HexViewer :editable="true" :startAddress="0x100" :pc="cpuSnapshot.pc" :bytes="rom"></HexViewer>
+      <HexViewer :editable="true" :pc="cpuSnapshot.pc" :bytes="rom"></HexViewer>
       <CpuSnapshot id="cpu-snapshot" :snapshot="cpuSnapshot"></CpuSnapshot>
       <button @click="step()">Step</button>
       <button @click="reset()">Reset</button>
@@ -21,7 +21,7 @@ rom[0x100] = 0x04;
 rom[0x101] = 0x04;
 rom[0x102] = 0x3d;
 
-const gb = new Gameboy(rom, true);
+let gb = new Gameboy(rom, true);
 
 export default {
   name: "app",
@@ -41,7 +41,8 @@ export default {
       this.cpuSnapshot = gb.dbg_cpu_snapshot();
     },
     reset: function() {
-      // gb = new Gameboy(Uint8Array.from(this.rom));
+      gb = new Gameboy(Uint8Array.from(this.rom), true);
+      this.cpuSnapshot = gb.dbg_cpu_snapshot();
     }
   }
 };

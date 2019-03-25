@@ -22,10 +22,6 @@ export default {
   components: { HexViewerLine },
   props: {
     pc: Number,
-    startAddress: {
-      type: Number,
-      default: 0
-    },
     lines: {
       type: Number,
       default: 12
@@ -40,6 +36,11 @@ export default {
       default: false
     }
   },
+  data: function() {
+    return {
+      startAddress: this.pc
+    };
+  },
   computed: {
     byteChunks: function() {
       return take(
@@ -53,6 +54,13 @@ export default {
       const { address, byte } = event;
       const index = address - this.startAddress;
       this.bytes.splice(index, 1, byte);
+    }
+  },
+  watch: {
+    pc: function(pc) {
+      if (pc >= this.startAddress + this.lines * this.bytesPerLine) {
+        this.startAddress = pc;
+      }
     }
   }
 };
