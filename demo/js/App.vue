@@ -1,10 +1,15 @@
 <template>
   <div id="app">
     <div class="debugger">
-      <HexViewer :editable="true" :pc="cpuSnapshot.pc" :bytes="rom"></HexViewer>
-      <CpuSnapshot id="cpu-snapshot" :snapshot="cpuSnapshot"></CpuSnapshot>
-      <button @click="step()">Step</button>
-      <button @click="reset()">Reset</button>
+      <div class="memory-cpu">
+        <HexViewer :editable="true" :pc="cpuSnapshot.pc" :bytes="rom"></HexViewer>
+        <CpuSnapshot id="cpu-snapshot" :snapshot="cpuSnapshot"></CpuSnapshot>
+      </div>
+      <div class="controls">
+        <input type="file" @change="loadRom">
+        <button @click="step()">Step</button>
+        <button @click="reset()">Reset</button>
+      </div>
     </div>
   </div>
 </template>
@@ -16,7 +21,7 @@ import CpuSnapshot from "./components/CpuSnapshot.vue";
 import HexViewer from "./components/HexViewer.vue";
 import { Gameboy } from "../../pkg";
 
-const rom = new Uint8Array(1000);
+let rom = new Uint8Array(1000);
 rom[0x100] = 0x04;
 rom[0x101] = 0x04;
 rom[0x102] = 0x3d;
@@ -36,6 +41,18 @@ export default {
     };
   },
   methods: {
+    loadRom: function(event) {
+      const files = event.target.files;
+      if (files && files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = readerEvent => {
+          rom = new Uint8Array(readerEvent.target.result);
+          gb = new Gameboy(rom, true);
+          this.rom = Array.from(rom);
+        };
+        reader.readAsArrayBuffer(files[0]);
+      }
+    },
     step: function() {
       gb.dbg_step();
       this.cpuSnapshot = gb.dbg_cpu_snapshot();
@@ -53,12 +70,11 @@ export default {
   font-family: "Avenir", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
   color: #2c3e50;
   margin-top: 60px;
 }
 
-.debugger {
+.memory-cpu {
   display: flex;
 }
 #cpu-snapshot {

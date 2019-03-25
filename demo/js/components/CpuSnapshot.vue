@@ -63,6 +63,7 @@ export default {
 
 <style scoped>
 .cpu-snapshot {
+  text-align: center;
 }
 .reg-group {
   display: flex;

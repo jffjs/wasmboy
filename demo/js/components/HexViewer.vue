@@ -58,7 +58,10 @@ export default {
   },
   watch: {
     pc: function(pc) {
-      if (pc >= this.startAddress + this.lines * this.bytesPerLine) {
+      if (
+        pc >= this.startAddress + this.lines * this.bytesPerLine ||
+        pc < this.startAddress
+      ) {
         this.startAddress = pc;
       }
     }
