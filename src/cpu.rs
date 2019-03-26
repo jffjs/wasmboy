@@ -4405,6 +4405,8 @@ fn check_borrow_8(a: u8, b: u8) -> bool {
 mod tests {
     use super::*;
     use cartridge::Cartridge;
+    use std::rc::Rc;
+    use timer::Timer;
 
     fn mmu_stub(b1: u8, b2: u8, b3: u8) -> MMU {
         let mut cart_data = [0; 0x148];
@@ -4412,7 +4414,8 @@ mod tests {
         cart_data[0x1] = b2;
         cart_data[0x2] = b3;
         let cart = Cartridge::new(&cart_data);
-        MMU::new(cart)
+        let timer = Timer::new();
+        MMU::new(cart, Rc::new(timer))
     }
 
     #[test]

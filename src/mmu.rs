@@ -1,5 +1,7 @@
 use cartridge::*;
 use emulator::IntFlag;
+use std::rc::Rc;
+use timer::Timer;
 
 // TODO: need 0x1fff of e_ram for MBC5, but that breaks wasm
 // maybe break e_ram up into banks (16 banks of 0x2000)
@@ -10,10 +12,11 @@ pub struct MMU {
     z_ram: [u8; 0x80],
     ie: u8,    // interrupt enable
     iflag: u8, // if - interrupt flags
+    timer: Rc<Timer>,
 }
 
 impl MMU {
-    pub fn new(cart: Cartridge) -> MMU {
+    pub fn new(cart: Cartridge, timer: Rc<Timer>) -> MMU {
         MMU {
             cart,
             e_ram: [0; 0x8000],
@@ -21,6 +24,7 @@ impl MMU {
             z_ram: [0; 0x80],
             ie: 0,
             iflag: 0,
+            timer,
         }
     }
 
@@ -93,9 +97,9 @@ impl MMU {
                     } else {
                         match addr & 0xf0 {
                             0x00 => match addr & 0xf {
-                                0x0 => 0,                   // TODO: joypad
-                                0x1 | 0x2 => 0,             // TODO: Serial I/O
-                                0x4 | 0x5 | 0x6 | 0x7 => 0, // TODO: Timer
+                                0x0 => 0,       // TODO: joypad
+                                0x1 | 0x2 => 0, // TODO: Serial I/O
+                                0x4 | 0x5 | 0x6 | 0x7 => self.timer.read_byte(addr),
                                 0xf => self.iflag,
                                 _ => 0,
                             },
@@ -246,9 +250,9 @@ impl MMU {
                         } else {
                             match addr & 0xf0 {
                                 0x00 => match addr & 0xf {
-                                    0x0 => (),                   // TODO: joypad
-                                    0x1 | 0x2 => (),             // TODO: Serial I/O
-                                    0x4 | 0x5 | 0x6 | 0x7 => (), // TODO: Timer
+                                    0x0 => (),       // TODO: joypad
+                                    0x1 | 0x2 => (), // TODO: Serial I/O
+                                    0x4 | 0x5 | 0x6 | 0x7 => self.timer.write_byte(addr, value),
                                     0xf => self.iflag = value,
                                     _ => (),
                                 },
@@ -289,6 +293,11 @@ impl MMU {
 #[cfg(test)]
 mod test {
     use super::*;
+    use timer::Timer;
+
+    fn timer() -> Rc<Timer> {
+        Rc::new(Timer::new())
+    }
 
     fn mbc1_cart() -> Cartridge {
         let mut cart_data = [0; 0x148];
@@ -308,14 +317,14 @@ mod test {
         cart_data[0] = 1;
         cart_data[5] = 123;
         let cart = Cartridge::new(&cart_data);
-        let mmu = MMU::new(cart);
+        let mmu = MMU::new(cart, timer());
         assert_eq!(mmu.rom()[0], 1);
         assert_eq!(mmu.rom()[5], 123);
     }
 
     #[test]
     fn test_mode_switch() {
-        let mut mmu = MMU::new(mbc1_cart());
+        let mut mmu = MMU::new(mbc1_cart(), timer());
         assert_eq!(mmu.cart.mode, CartMode::Default);
         mmu.write_byte(0x6000, 0x1);
         assert_eq!(mmu.cart.mode, CartMode::RamBank);
@@ -323,7 +332,7 @@ mod test {
 
     #[test]
     fn test_rom_bank_switch() {
-        let mut mmu = MMU::new(mbc1_cart());
+        let mut mmu = MMU::new(mbc1_cart(), timer());
         assert_eq!(mmu.cart.rom_bank, 1);
         mmu.write_byte(0x2000, 0x0);
         assert_eq!(mmu.cart.rom_bank, 1);
@@ -335,7 +344,7 @@ mod test {
 
     #[test]
     fn test_ram_bank_switch() {
-        let mut mmu = MMU::new(mbc1_cart());
+        let mut mmu = MMU::new(mbc1_cart(), timer());
         mmu.write_byte(0x6000, 0x1); // set RAM bank mode
 
         // RAM not enabled
@@ -365,7 +374,7 @@ mod test {
         cart_data[0x3333] = 0x33;
         cart_data[0x3334] = 0x44;
         let cart = Cartridge::new(&cart_data);
-        let mmu = MMU::new(cart);
+        let mmu = MMU::new(cart, timer());
 
         assert_eq!(mmu.read_byte(0x0), 0x11);
         assert_eq!(mmu.read_byte(0x1), 0x22);
@@ -380,7 +389,7 @@ mod test {
         let mut cart_data = [0; 0xffff];
         cart_data[0x147] = 0x1;
         let cart = Cartridge::new(&cart_data);
-        let mut mmu = MMU::new(cart);
+        let mut mmu = MMU::new(cart, timer());
 
         // working RAM
         mmu.write_byte(0xc000, 0x34);
@@ -419,7 +428,7 @@ mod test {
 
     #[test]
     fn test_mbc2() {
-        let mut mmu = MMU::new(mbc2_cart());
+        let mut mmu = MMU::new(mbc2_cart(), timer());
 
         mmu.write_byte(0x00ff, 0x1);
         assert!(mmu.cart.ram_enabled);

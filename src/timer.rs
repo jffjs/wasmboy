@@ -1,44 +1,92 @@
 use emulator::IntFlag;
-use mmu::MMU;
+use std::cell::Cell;
+
+struct Clock {
+  sub: Cell<u8>,
+  main: Cell<u8>,
+  div: Cell<u8>,
+}
+
+impl Clock {
+  fn new() -> Clock {
+    Clock {
+      sub: Cell::new(0),
+      main: Cell::new(0),
+      div: Cell::new(0),
+    }
+  }
+
+  fn sub(&self) -> u8 {
+    self.sub.get()
+  }
+
+  fn main(&self) -> u8 {
+    self.main.get()
+  }
+
+  fn div(&self) -> u8 {
+    self.div.get()
+  }
+
+  fn inc_sub(&self, value: u8) {
+    self.sub.replace(self.sub.get() + value);
+  }
+
+  fn correct_sub(&self) {
+    self.sub.replace(self.sub.get() - 4);
+  }
+
+  fn inc_div(&self) {
+    self.div.replace(self.div.get() + 1);
+  }
+
+  fn reset_div(&self) {
+    self.div.replace(0);
+  }
+
+  fn inc_main(&self) {
+    self.main.replace(self.main.get() + 1);
+  }
+
+  fn reset_main(&self) {
+    self.main.replace(0);
+  }
+}
 
 pub struct Timer {
-  clock_s: u8,
-  clock_m: u8,
-  clock_d: u8,
-  div: u8,
-  tma: u8,
-  tima: u8,
-  tac: u8,
+  clock: Clock,
+  div: Cell<u8>,
+  tma: Cell<u8>,
+  tima: Cell<u8>,
+  tac: Cell<u8>,
 }
 
 impl Timer {
   pub fn new() -> Timer {
     Timer {
-      clock_d: 0,
-      clock_m: 0,
-      clock_s: 0,
-      div: 0,
-      tma: 0,
-      tima: 0,
-      tac: 0,
+      clock: Clock::new(),
+      div: Cell::new(0),
+      tma: Cell::new(0),
+      tima: Cell::new(0),
+      tac: Cell::new(0),
     }
   }
 
-  pub fn inc(&mut self, mmu: &mut MMU, cpu_m: u8) {
-    self.clock_d += cpu_m;
-    if self.clock_d >= 4 {
-      self.clock_m += 1;
-      self.clock_s -= 4;
-      self.clock_d += 1;
+  pub fn inc(&self, cpu_m: u8) -> Option<IntFlag> {
+    self.clock.inc_sub(cpu_m);
+    if self.clock.sub() >= 4 {
+      self.clock.correct_sub();
+      self.clock.inc_main();
+      self.clock.inc_div();
 
-      if self.clock_d == 16 {
-        self.clock_d = 0;
-        self.div.wrapping_add(1);
+      if self.clock.div() == 16 {
+        self.clock.reset_div();
+        self.div.replace(self.div.get().wrapping_add(1));
       }
     }
 
-    if (self.tac & 0x4) > 0 {
-      let threshold = match self.tac & 0x3 {
+    if (self.tac.get() & 0x4) > 0 {
+      let threshold = match self.tac.get() & 0x3 {
         0 => 64,
         1 => 1,
         2 => 4,
@@ -46,14 +94,44 @@ impl Timer {
         _ => panic!("unreachable"),
       };
 
-      if self.clock_m >= threshold {
-        self.clock_m = 0;
-        self.tima.wrapping_add(1);
-        if self.tima == 0 {
-          self.tima = self.tma;
-          mmu.set_iflag(IntFlag::TimerOverflow);
+      if self.clock.main() >= threshold {
+        self.clock.reset_main();
+        self.tima.replace(self.tima.get().wrapping_add(1));
+        if self.tima.get() == 0 {
+          self.tima.replace(self.tma.get());
+          // mmu.set_iflag(IntFlag::TimerOverflow);
+          return Some(IntFlag::TimerOverflow);
         }
       }
+    }
+    None
+  }
+
+  pub fn read_byte(&self, addr: u16) -> u8 {
+    match addr {
+      0xff04 => self.div.get(),
+      0xff05 => self.tima.get(),
+      0xff06 => self.tma.get(),
+      0xff07 => self.tac.get(),
+      _ => 0,
+    }
+  }
+
+  pub fn write_byte(&self, addr: u16, value: u8) {
+    match addr {
+      0xff04 => {
+        self.div.replace(0);
+      }
+      0xff05 => {
+        self.tima.replace(value);
+      }
+      0xff06 => {
+        self.tma.replace(value);
+      }
+      0xff07 => {
+        self.tac.replace(value & 0x7);
+      }
+      _ => (),
     }
   }
 }

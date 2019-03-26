@@ -3,6 +3,7 @@ use cpu::CPU;
 use mmu::MMU;
 use num::ToPrimitive;
 use std::ops::{BitAnd, BitOr, Not};
+use std::rc::Rc;
 use timer::Timer;
 use wasm_bindgen::prelude::*;
 
@@ -11,7 +12,7 @@ pub struct Emulator {
     debug: bool,
     cpu: CPU,
     mmu: MMU,
-    timer: Timer,
+    timer: Rc<Timer>,
 }
 
 #[wasm_bindgen]
@@ -19,14 +20,14 @@ impl Emulator {
     #[wasm_bindgen(constructor)]
     pub fn new(rom: &[u8], debug: bool) -> Emulator {
         let cart = Cartridge::new(rom);
-        let mmu = MMU::new(cart);
+        let timer = Rc::new(Timer::new());
+        let mmu = MMU::new(cart, timer.clone());
         let mut cpu = CPU::new();
-        let timer = Timer::new();
         cpu.post_bios();
         Emulator {
             cpu,
             mmu,
-            timer,
+            timer: timer.clone(),
             debug,
         }
     }
@@ -34,7 +35,7 @@ impl Emulator {
     #[wasm_bindgen]
     pub fn frame(&mut self) {
         // (144 scanlines + 10-line vblank) * 114 M-cycles
-        const M_CYCLES: u32 = (144 + 10) * 456;
+        const M_CYCLES: u32 = (144 + 10) * 114;
         let fclock = self.cpu.clock_m() + M_CYCLES;
         while self.cpu.clock_m() < fclock {
             // Execute next instruction
@@ -46,7 +47,9 @@ impl Emulator {
             self.check_interrupts();
 
             // TODO: handle GPU updates
-            self.timer.inc(&mut self.mmu, self.cpu.m());
+            if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
+                self.mmu.set_iflag(timer_int);
+            }
         }
     }
 
