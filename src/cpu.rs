@@ -29,7 +29,6 @@ pub struct CPU {
 #[derive(Clone, Serialize)]
 struct Clock {
     m: u32,
-    t: u32,
 }
 
 enum Flag {
@@ -57,7 +56,7 @@ impl CPU {
             stop: false,
             halt: false,
             ime: true,
-            clock: Clock { m: 0, t: 0 },
+            clock: Clock { m: 0 },
         }
     }
 
@@ -69,6 +68,10 @@ impl CPU {
         self.c = 0x13;
         self.e = 0xd8;
         self.a = 0x01;
+    }
+
+    pub fn m(&self) -> u8 {
+        self.m
     }
 
     pub fn clock_m(&self) -> u32 {

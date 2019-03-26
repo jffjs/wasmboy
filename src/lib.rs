@@ -11,6 +11,7 @@ mod cpu;
 pub mod emulator;
 mod mmu;
 mod opcode;
+mod timer;
 mod utils;
 
 use cfg_if::cfg_if;

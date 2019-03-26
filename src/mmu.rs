@@ -32,6 +32,10 @@ impl MMU {
         self.iflag
     }
 
+    pub fn set_iflag(&mut self, iflag: IntFlag) {
+        self.iflag = iflag | self.iflag;
+    }
+
     pub fn reset_iflag(&mut self, iflag: IntFlag) {
         self.iflag &= !iflag;
     }

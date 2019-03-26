@@ -2,7 +2,8 @@ use cartridge::Cartridge;
 use cpu::CPU;
 use mmu::MMU;
 use num::ToPrimitive;
-use std::ops::{BitAnd, Not};
+use std::ops::{BitAnd, BitOr, Not};
+use timer::Timer;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -10,6 +11,7 @@ pub struct Emulator {
     debug: bool,
     cpu: CPU,
     mmu: MMU,
+    timer: Timer,
 }
 
 #[wasm_bindgen]
@@ -19,8 +21,14 @@ impl Emulator {
         let cart = Cartridge::new(rom);
         let mmu = MMU::new(cart);
         let mut cpu = CPU::new();
+        let timer = Timer::new();
         cpu.post_bios();
-        Emulator { cpu, mmu, debug }
+        Emulator {
+            cpu,
+            mmu,
+            timer,
+            debug,
+        }
     }
 
     #[wasm_bindgen]
@@ -38,7 +46,7 @@ impl Emulator {
             self.check_interrupts();
 
             // TODO: handle GPU updates
-            // TODO: handle Timer updates
+            self.timer.inc(&mut self.mmu, self.cpu.m());
         }
     }
 
@@ -105,6 +113,14 @@ impl BitAnd<u8> for IntFlag {
 
     fn bitand(self, other: u8) -> u8 {
         other & self.to_u8().unwrap()
+    }
+}
+
+impl BitOr<u8> for IntFlag {
+    type Output = u8;
+
+    fn bitor(self, other: u8) -> u8 {
+        other | self.to_u8().unwrap()
     }
 }
 
