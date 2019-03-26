@@ -4407,6 +4407,7 @@ mod tests {
     use cartridge::Cartridge;
     use std::rc::Rc;
     use timer::Timer;
+    use gpu::GPU;
 
     fn mmu_stub(b1: u8, b2: u8, b3: u8) -> MMU {
         let mut cart_data = [0; 0x148];
@@ -4415,7 +4416,8 @@ mod tests {
         cart_data[0x2] = b3;
         let cart = Cartridge::new(&cart_data);
         let timer = Timer::new();
-        MMU::new(cart, Rc::new(timer))
+        let gpu = GPU::new();
+        MMU::new(cart, Rc::new(timer), Rc::new(gpu))
     }
 
     #[test]

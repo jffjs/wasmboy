@@ -1,5 +1,6 @@
 use cartridge::*;
 use emulator::IntFlag;
+use gpu::GPU;
 use std::rc::Rc;
 use timer::Timer;
 
@@ -12,11 +13,12 @@ pub struct MMU {
     z_ram: [u8; 0x80],
     ie: u8,    // interrupt enable
     iflag: u8, // if - interrupt flags
+    gpu: Rc<GPU>,
     timer: Rc<Timer>,
 }
 
 impl MMU {
-    pub fn new(cart: Cartridge, timer: Rc<Timer>) -> MMU {
+    pub fn new(cart: Cartridge, timer: Rc<Timer>, gpu: Rc<GPU>) -> MMU {
         MMU {
             cart,
             e_ram: [0; 0x8000],
@@ -24,6 +26,7 @@ impl MMU {
             z_ram: [0; 0x80],
             ie: 0,
             iflag: 0,
+            gpu,
             timer,
         }
     }
@@ -60,7 +63,7 @@ impl MMU {
                 }
             }
             // Graphics: VRAM
-            0x8 | 0x9 => 0, // TODO: read from VRAM
+            0x8 | 0x9 => self.gpu.read_byte(addr),
             // External RAM
             0xa | 0xb => match self.cart.cart_type {
                 CartType::MBC1 => {
@@ -81,14 +84,7 @@ impl MMU {
                 | 0xd => self.w_ram[(addr & 0x1fff) as usize],
                 // Graphics: object attribute memory
                 // OAM is 160 bytes, remaining bytes read as 0
-                0xe => {
-                    if addr < 0xfea0 {
-                        0
-                    // TODO: read from OAM
-                    } else {
-                        0
-                    }
-                }
+                0xe => self.gpu.read_byte(addr),
                 0xf => {
                     if addr == 0xffff {
                         self.ie
@@ -104,7 +100,7 @@ impl MMU {
                                 _ => 0,
                             },
                             0x10 | 0x20 | 0x30 => 0, // TODO: Sound registers
-                            0x40 | 0x50 | 0x60 | 0x70 => 0, // TODO: GPU registers
+                            0x40 => self.gpu.read_byte(addr),
                             _ => 0,
                         }
                     }
@@ -214,7 +210,7 @@ impl MMU {
                 _ => (),
             },
             // VRAM
-            0x8 | 0x9 => (), // TODO
+            0x8 | 0x9 => self.gpu.write_byte(addr, value),
             // External RAM
             0xa | 0xb => {
                 if self.cart.ram_enabled {
@@ -240,7 +236,7 @@ impl MMU {
             0xf => {
                 match (addr & 0xf00) >> 8 {
                     // OAM
-                    0xe => {}
+                    0xe => self.gpu.write_byte(addr, value),
                     // Zeropage RAM, I/O, interrupts
                     0xf => {
                         if addr == 0xffff {
@@ -257,7 +253,7 @@ impl MMU {
                                     _ => (),
                                 },
                                 0x10 | 0x20 | 0x30 => (), // TODO: Sound registers
-                                0x40 | 0x50 | 0x60 | 0x70 => (), // TODO: GPU registers
+                                0x40 => self.gpu.write_byte(addr, value),
                                 _ => (),
                             }
                         }
@@ -293,10 +289,15 @@ impl MMU {
 #[cfg(test)]
 mod test {
     use super::*;
+    use gpu::GPU;
     use timer::Timer;
 
     fn timer() -> Rc<Timer> {
         Rc::new(Timer::new())
+    }
+
+    fn gpu() -> Rc<GPU> {
+        Rc::new(GPU::new())
     }
 
     fn mbc1_cart() -> Cartridge {
@@ -317,14 +318,14 @@ mod test {
         cart_data[0] = 1;
         cart_data[5] = 123;
         let cart = Cartridge::new(&cart_data);
-        let mmu = MMU::new(cart, timer());
+        let mmu = MMU::new(cart, timer(), gpu());
         assert_eq!(mmu.rom()[0], 1);
         assert_eq!(mmu.rom()[5], 123);
     }
 
     #[test]
     fn test_mode_switch() {
-        let mut mmu = MMU::new(mbc1_cart(), timer());
+        let mut mmu = MMU::new(mbc1_cart(), timer(), gpu());
         assert_eq!(mmu.cart.mode, CartMode::Default);
         mmu.write_byte(0x6000, 0x1);
         assert_eq!(mmu.cart.mode, CartMode::RamBank);
@@ -332,7 +333,7 @@ mod test {
 
     #[test]
     fn test_rom_bank_switch() {
-        let mut mmu = MMU::new(mbc1_cart(), timer());
+        let mut mmu = MMU::new(mbc1_cart(), timer(), gpu());
         assert_eq!(mmu.cart.rom_bank, 1);
         mmu.write_byte(0x2000, 0x0);
         assert_eq!(mmu.cart.rom_bank, 1);
@@ -344,7 +345,7 @@ mod test {
 
     #[test]
     fn test_ram_bank_switch() {
-        let mut mmu = MMU::new(mbc1_cart(), timer());
+        let mut mmu = MMU::new(mbc1_cart(), timer(), gpu());
         mmu.write_byte(0x6000, 0x1); // set RAM bank mode
 
         // RAM not enabled
@@ -374,7 +375,7 @@ mod test {
         cart_data[0x3333] = 0x33;
         cart_data[0x3334] = 0x44;
         let cart = Cartridge::new(&cart_data);
-        let mmu = MMU::new(cart, timer());
+        let mmu = MMU::new(cart, timer(), gpu());
 
         assert_eq!(mmu.read_byte(0x0), 0x11);
         assert_eq!(mmu.read_byte(0x1), 0x22);
@@ -389,7 +390,7 @@ mod test {
         let mut cart_data = [0; 0xffff];
         cart_data[0x147] = 0x1;
         let cart = Cartridge::new(&cart_data);
-        let mut mmu = MMU::new(cart, timer());
+        let mut mmu = MMU::new(cart, timer(), gpu());
 
         // working RAM
         mmu.write_byte(0xc000, 0x34);
@@ -428,7 +429,7 @@ mod test {
 
     #[test]
     fn test_mbc2() {
-        let mut mmu = MMU::new(mbc2_cart(), timer());
+        let mut mmu = MMU::new(mbc2_cart(), timer(), gpu());
 
         mmu.write_byte(0x00ff, 0x1);
         assert!(mmu.cart.ram_enabled);

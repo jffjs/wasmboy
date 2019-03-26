@@ -1,5 +1,6 @@
 use cartridge::Cartridge;
 use cpu::CPU;
+use gpu::GPU;
 use mmu::MMU;
 use num::ToPrimitive;
 use std::ops::{BitAnd, BitOr, Not};
@@ -11,6 +12,7 @@ use wasm_bindgen::prelude::*;
 pub struct Emulator {
     debug: bool,
     cpu: CPU,
+    gpu: Rc<GPU>,
     mmu: MMU,
     timer: Rc<Timer>,
 }
@@ -21,11 +23,13 @@ impl Emulator {
     pub fn new(rom: &[u8], debug: bool) -> Emulator {
         let cart = Cartridge::new(rom);
         let timer = Rc::new(Timer::new());
-        let mmu = MMU::new(cart, timer.clone());
+        let gpu = Rc::new(GPU::new());
+        let mmu = MMU::new(cart, timer.clone(), gpu.clone());
         let mut cpu = CPU::new();
         cpu.post_bios();
         Emulator {
             cpu,
+            gpu: gpu.clone(),
             mmu,
             timer: timer.clone(),
             debug,
@@ -46,7 +50,10 @@ impl Emulator {
             // Run interrupt routine
             self.check_interrupts();
 
-            // TODO: handle GPU updates
+            if let Some(gpu_int) = self.gpu.execute(self.cpu.m()) {
+                self.mmu.set_iflag(gpu_int);
+            }
+
             if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
                 self.mmu.set_iflag(timer_int);
             }

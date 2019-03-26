@@ -40,7 +40,7 @@ impl GPU {
         }
     }
 
-    pub fn execute(&self) -> Option<IntFlag> {
+    pub fn execute(&self, cpu_m: u8) -> Option<IntFlag> {
         None
     }
 
