@@ -135,7 +135,7 @@ impl CPU {
             IntFlag::SerialIO => self.pc = 0x58,
             IntFlag::JoyPad => self.pc = 0x60,
         }
-        self.clock.m += 8;
+        self.clock.m += 4;
     }
 
     pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), String> {
@@ -358,7 +358,7 @@ impl CPU {
                     } else {
                         self.pc = self.pc.wrapping_add(offset as u16);
                     }
-                    self.m = 2;
+                    self.m = 3;
                 }
                 Opcode::ADDHLDE => {
                     self.reset_flag(Flag::N);
@@ -429,6 +429,7 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::JRNZn => {
+                    self.m = 2;
                     if self.test_flag(Flag::Z) == 0 {
                         let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
@@ -436,8 +437,8 @@ impl CPU {
                         } else {
                             self.pc = self.pc.wrapping_add(offset as u16);
                         }
+                        self.m += 1;
                     }
-                    self.m = 2;
                 }
                 Opcode::LDHLnn => {
                     self.h = mmu.read_byte(self.pc);
@@ -505,6 +506,7 @@ impl CPU {
                     }
                 }
                 Opcode::JRZn => {
+                    self.m = 2;
                     if self.test_flag(Flag::Z) == 1 {
                         let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
@@ -512,8 +514,8 @@ impl CPU {
                         } else {
                             self.pc = self.pc.wrapping_add(offset as u16);
                         }
+                        self.m += 1;
                     }
-                    self.m = 2;
                 }
                 Opcode::ADDHLHL => {
                     self.reset_flag(Flag::N);
@@ -578,6 +580,7 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::JRNCn => {
+                    self.m = 2;
                     if self.test_flag(Flag::C) == 0 {
                         let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
@@ -585,8 +588,8 @@ impl CPU {
                         } else {
                             self.pc = self.pc.wrapping_add(offset as u16);
                         }
+                        self.m += 1;
                     }
-                    self.m = 2;
                 }
                 Opcode::LDSPnn => {
                     self.sp = mmu.read_word(self.pc);
@@ -646,6 +649,7 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::JRCn => {
+                    self.m = 2;
                     if self.test_flag(Flag::C) == 1 {
                         let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
@@ -653,8 +657,8 @@ impl CPU {
                         } else {
                             self.pc = self.pc.wrapping_add(offset as u16);
                         }
+                        self.m += 1;
                     }
-                    self.m = 2;
                 }
                 Opcode::ADDHLSP => {
                     self.reset_flag(Flag::N);
@@ -1820,11 +1824,12 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::RETNZ => {
+                    self.m = 2; //jsGB has 3 (1 + 2 if true)?
                     if self.test_flag(Flag::Z) == 0 {
                         self.pc = mmu.read_word(self.sp);
                         self.sp = self.sp.wrapping_add(2);
+                        self.m += 3;
                     }
-                    self.m = 2; //jsGB has 3 (1 + 2 if true)?
                 }
                 Opcode::POPBC => {
                     self.c = mmu.read_byte(self.sp);
@@ -1834,26 +1839,28 @@ impl CPU {
                     self.m = 3;
                 }
                 Opcode::JPNZnn => {
+                    self.m = 3;
                     if self.test_flag(Flag::Z) == 0 {
                         self.pc = mmu.read_word(self.pc);
+                        self.m += 1;
                     } else {
                         self.pc = self.pc.wrapping_add(2);
                     }
-                    self.m = 3;
                 }
                 Opcode::JPnn => {
                     self.pc = mmu.read_word(self.pc);
-                    self.m = 3;
+                    self.m = 4;
                 }
                 Opcode::CALLNZnn => {
+                    self.m = 3;
                     if self.test_flag(Flag::Z) == 0 {
                         self.sp = self.sp.wrapping_sub(2);
                         mmu.write_word(self.sp, self.pc.wrapping_add(2));
                         self.pc = mmu.read_word(self.pc);
+                        self.m += 3;
                     } else {
                         self.pc = self.pc.wrapping_add(2);
                     }
-                    self.m = 3;
                 }
                 Opcode::PUSHBC => {
                     self.sp = self.sp.wrapping_sub(1);
@@ -1882,42 +1889,46 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0;
-                    self.m = 8;
+                    self.m = 4;
                 }
                 Opcode::RETZ => {
+                    self.m = 2;
                     if self.test_flag(Flag::Z) == 1 {
                         self.pc = mmu.read_word(self.sp);
                         self.sp = self.sp.wrapping_add(2);
+                        self.m += 3;
                     }
-                    self.m = 2;
                 }
                 Opcode::RET => {
                     self.pc = mmu.read_word(self.sp);
                     self.sp = self.sp.wrapping_add(2);
-                    self.m = 2;
+                    self.m = 4;
                 }
                 Opcode::JPZnn => {
                     if self.test_flag(Flag::Z) == 1 {
-                        self.pc = mmu.read_word(self.pc);
-                    }
-                    self.m = 3;
-                }
-                Opcode::ExtOps => return self.exec_ext(mmu),
-                Opcode::CALLZnn => {
-                    if self.test_flag(Flag::Z) == 1 {
-                        self.sp = self.sp.wrapping_sub(2);
-                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
                         self.pc = mmu.read_word(self.pc);
                     } else {
                         self.pc = self.pc.wrapping_add(2);
                     }
                     self.m = 3;
                 }
+                Opcode::ExtOps => return self.exec_ext(mmu),
+                Opcode::CALLZnn => {
+                    self.m = 3;
+                    if self.test_flag(Flag::Z) == 1 {
+                        self.sp = self.sp.wrapping_sub(2);
+                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
+                        self.pc = mmu.read_word(self.pc);
+                        self.m += 3;
+                    } else {
+                        self.pc = self.pc.wrapping_add(2);
+                    }
+                }
                 Opcode::CALLnn => {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc.wrapping_add(2));
                     self.pc = mmu.read_word(self.pc);
-                    self.m = 3;
+                    self.m = 6;
                 }
                 Opcode::ADCAn => {
                     let carry = self.test_flag(Flag::C);
@@ -1941,14 +1952,15 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x8;
-                    self.m = 8;
+                    self.m = 4;
                 }
                 Opcode::RETNC => {
+                    self.m = 2;
                     if self.test_flag(Flag::C) == 0 {
                         self.pc = mmu.read_word(self.sp);
                         self.sp = self.sp.wrapping_add(2);
+                        self.m += 3;
                     }
-                    self.m = 2;
                 }
                 Opcode::POPDE => {
                     self.e = mmu.read_byte(self.sp);
@@ -1958,20 +1970,24 @@ impl CPU {
                     self.m = 3;
                 }
                 Opcode::JPNCnn => {
+                    self.m = 3;
                     if self.test_flag(Flag::C) == 0 {
                         self.pc = mmu.read_word(self.pc);
+                        self.m += 1;
+                    } else {
+                        self.pc = self.pc.wrapping_add(2);
                     }
-                    self.m = 3;
                 }
                 Opcode::CALLNCnn => {
+                    self.m = 3;
                     if self.test_flag(Flag::C) == 0 {
                         self.sp = self.sp.wrapping_sub(2);
                         mmu.write_word(self.sp, self.pc.wrapping_add(2));
                         self.pc = mmu.read_word(self.pc);
+                        self.m += 3;
                     } else {
                         self.pc = self.pc.wrapping_add(2);
                     }
-                    self.m = 3;
                 }
                 Opcode::PUSHDE => {
                     self.sp = self.sp.wrapping_sub(1);
@@ -2000,35 +2016,41 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x10;
-                    self.m = 8;
+                    self.m = 4;
                 }
                 Opcode::RETC => {
+                    self.m = 2;
                     if self.test_flag(Flag::C) == 1 {
                         self.pc = mmu.read_word(self.sp);
                         self.sp = self.sp.wrapping_add(2);
+                        self.m += 3;
                     }
-                    self.m = 2;
                 }
                 Opcode::RETI => {
                     self.pc = mmu.read_word(self.sp);
                     self.sp = self.sp.wrapping_add(2);
                     self.ime = true;
+                    self.m = 4;
                 }
                 Opcode::JPCnn => {
+                    self.m = 3;
                     if self.test_flag(Flag::C) == 1 {
                         self.pc = mmu.read_word(self.pc);
+                        self.m += 1;
+                    } else {
+                        self.pc = self.pc.wrapping_add(2);
                     }
-                    self.m = 3;
                 }
                 Opcode::CALLCnn => {
+                    self.m = 3;
                     if self.test_flag(Flag::C) == 1 {
                         self.sp = self.sp.wrapping_sub(2);
                         mmu.write_word(self.sp, self.pc.wrapping_add(2));
                         self.pc = mmu.read_word(self.pc);
+                        self.m += 3;
                     } else {
                         self.pc = self.pc.wrapping_add(2);
                     }
-                    self.m = 3;
                 }
                 Opcode::SBCAn => {
                     let carry = self.test_flag(Flag::C);
@@ -2052,7 +2074,7 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x18;
-                    self.m = 8;
+                    self.m = 4;
                 }
                 Opcode::LDH_n_A => {
                     let n = mmu.read_byte(self.pc);
@@ -2090,7 +2112,7 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x20;
-                    self.m = 8;
+                    self.m = 4;
                 }
                 Opcode::ADDSPn => {
                     self.reset_flag(Flag::Z);
@@ -2124,7 +2146,7 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x28;
-                    self.m = 8;
+                    self.m = 4;
                 }
                 Opcode::LDHA_n_ => {
                     let n = mmu.read_byte(self.pc);
@@ -2161,7 +2183,7 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x30;
-                    self.m = 8;
+                    self.m = 4;
                 }
                 Opcode::LDHLSPn => {
                     self.reset_flag(Flag::Z);
@@ -2212,7 +2234,7 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x38;
-                    self.m = 8;
+                    self.m = 4;
                 }
             },
             None => return Err("Unsupported operation.".to_owned()),
