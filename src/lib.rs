@@ -9,6 +9,7 @@ extern crate serde_derive;
 mod cartridge;
 mod cpu;
 pub mod emulator;
+mod gpu;
 mod mmu;
 mod opcode;
 mod timer;

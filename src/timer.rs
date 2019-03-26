@@ -99,7 +99,6 @@ impl Timer {
         self.tima.replace(self.tima.get().wrapping_add(1));
         if self.tima.get() == 0 {
           self.tima.replace(self.tma.get());
-          // mmu.set_iflag(IntFlag::TimerOverflow);
           return Some(IntFlag::TimerOverflow);
         }
       }
