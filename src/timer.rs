@@ -29,27 +29,27 @@ impl Clock {
   }
 
   fn inc_sub(&self, value: u8) {
-    self.sub.replace(self.sub.get() + value);
+    self.sub.set(self.sub.get() + value);
   }
 
   fn correct_sub(&self) {
-    self.sub.replace(self.sub.get() - 4);
+    self.sub.set(self.sub.get() - 4);
   }
 
   fn inc_div(&self) {
-    self.div.replace(self.div.get() + 1);
+    self.div.set(self.div.get() + 1);
   }
 
   fn reset_div(&self) {
-    self.div.replace(0);
+    self.div.set(0);
   }
 
   fn inc_main(&self) {
-    self.main.replace(self.main.get() + 1);
+    self.main.set(self.main.get() + 1);
   }
 
   fn reset_main(&self) {
-    self.main.replace(0);
+    self.main.set(0);
   }
 }
 
@@ -81,7 +81,7 @@ impl Timer {
 
       if self.clock.div() == 16 {
         self.clock.reset_div();
-        self.div.replace(self.div.get().wrapping_add(1));
+        self.div.set(self.div.get().wrapping_add(1));
       }
     }
 
@@ -96,9 +96,9 @@ impl Timer {
 
       if self.clock.main() >= threshold {
         self.clock.reset_main();
-        self.tima.replace(self.tima.get().wrapping_add(1));
+        self.tima.set(self.tima.get().wrapping_add(1));
         if self.tima.get() == 0 {
-          self.tima.replace(self.tma.get());
+          self.tima.set(self.tma.get());
           return Some(IntFlag::TimerOverflow);
         }
       }
@@ -118,18 +118,10 @@ impl Timer {
 
   pub fn write_byte(&self, addr: u16, value: u8) {
     match addr {
-      0xff04 => {
-        self.div.replace(0);
-      }
-      0xff05 => {
-        self.tima.replace(value);
-      }
-      0xff06 => {
-        self.tma.replace(value);
-      }
-      0xff07 => {
-        self.tac.replace(value & 0x7);
-      }
+      0xff04 => self.div.set(0),
+      0xff05 => self.tima.set(value),
+      0xff06 => self.tma.set(value),
+      0xff07 => self.tac.set(value & 0x7),
       _ => (),
     }
   }

@@ -51,6 +51,9 @@ impl Emulator {
             self.check_interrupts();
 
             if let Some(gpu_int) = self.gpu.execute(self.cpu.m()) {
+                if gpu_int == IntFlag::Vblank {
+                    // TODO: add screen render hook here
+                }
                 self.mmu.set_iflag(gpu_int);
             }
 
@@ -109,7 +112,7 @@ impl Emulator {
     }
 }
 
-#[derive(Debug, ToPrimitive)]
+#[derive(Debug, PartialEq, ToPrimitive)]
 pub enum IntFlag {
     Vblank = 0x1,
     LCDC = 0x2,
