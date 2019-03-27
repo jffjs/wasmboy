@@ -37,7 +37,7 @@ impl Emulator {
     }
 
     #[wasm_bindgen]
-    pub fn frame(&mut self) {
+    pub fn frame(&mut self, screen: &mut [u8; 144 * 160]) {
         // (144 scanlines + 10-line vblank) * 114 M-cycles
         const M_CYCLES: u32 = (144 + 10) * 114;
         let fclock = self.cpu.clock_m() + M_CYCLES;
@@ -50,7 +50,7 @@ impl Emulator {
             // Run interrupt routine
             self.check_interrupts();
 
-            if let Some(gpu_int) = self.gpu.execute(self.cpu.m()) {
+            if let Some(gpu_int) = self.gpu.execute(self.cpu.m(), screen) {
                 if gpu_int == IntFlag::Vblank {
                     // TODO: add screen render hook here
                 }

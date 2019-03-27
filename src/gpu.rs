@@ -5,6 +5,8 @@ use std::ops::{BitAnd, BitOr};
 
 const SCAN_WIDTH: usize = 160 * 4;
 
+type Screen = [u8; 144 * 160];
+
 pub struct GPU {
     vram: RefCell<[u8; 0x2000]>,
     oam: RefCell<[u8; 0xa0]>,
@@ -44,7 +46,7 @@ impl GPU {
         }
     }
 
-    pub fn execute(&self, cpu_m: u8) -> Option<IntFlag> {
+    pub fn execute(&self, cpu_m: u8, screen: &mut Screen) -> Option<IntFlag> {
         self.inc_clock(cpu_m);
 
         match self.mode() {
@@ -82,7 +84,9 @@ impl GPU {
                 if self.clock() >= 43 {
                     self.reset_clock();
                     self.set_mode(Mode::Hblank);
-                    self.render_scanline();
+                    if self.lcd_on() {
+                        self.render_scanline(screen);
+                    }
                 }
             }
         }
@@ -136,7 +140,7 @@ impl GPU {
                     0x41 => self.stat.set(value),
                     0x42 => self.scy.set(value),
                     0x43 => self.scx.set(value),
-                    0x44 => (), // read-only
+                    0x44 => self.reset_ly(),
                     0x45 => self.lyc.set(value),
                     0x46 => (), // TODO: DMA transfer
                     0x47 => self.bgp.set(value),
@@ -152,7 +156,50 @@ impl GPU {
         }
     }
 
-    fn render_scanline(&self) {}
+    fn render_scanline(&self, screen: &mut Screen) {
+        if self.bg_on() {
+            self.render_bg(screen);
+        }
+
+        if self.obj_on() {
+            self.render_obj(screen);
+        }
+    }
+
+    fn render_bg(&self, screen: &mut Screen) {
+        let tilemap_offset = self.bgmap_offset().wrapping_add(self.bg_line() as usize) >> 3;
+        let mut line_offset = (self.scx() >> 3) as usize;
+        let mut pixel_x = self.scx() & 7;
+        let pixel_y = self.bg_line() & 7;
+        let vram = self.vram.borrow();
+        let mut tile = vram[tilemap_offset + line_offset];
+        let mut tile_addr = self.tile_addr(tile) + (pixel_y * 2) as usize;
+        let mut t0 = vram[tile_addr];
+        let mut t1 = vram[tile_addr + 1];
+
+        for x in 0..160 {
+            // TODO: if this is too slow, we can calculate when vram is updated
+            // and keep tile data in separate data structure
+            let b0 = (t0 >> (7 - pixel_x)) & 1;
+            let b1 = ((t1 >> (7 - pixel_x)) << 1) & 2;
+            let t_color = b0 + b1;
+            let p_color = self.bgp_color(t_color);
+            // push to screen array
+            screen[self.ly() as usize * 144 + x] = p_color;
+            pixel_x += 1;
+            // move to next tile
+            if pixel_x > 7 {
+                pixel_x = 0;
+                line_offset = (line_offset + 1) & 31;
+                tile = vram[tilemap_offset + line_offset];
+                tile_addr = self.tile_addr(tile) + (pixel_y * 2) as usize;
+                t0 = vram[tile_addr];
+                t1 = vram[tile_addr + 1];
+            }
+        }
+    }
+
+    fn render_obj(&self, screen: &mut Screen) {}
 
     fn lcd_on(&self) -> bool {
         (self.lcdc.get() & 0x80) == 0x80
@@ -168,6 +215,18 @@ impl GPU {
 
     fn bg_on(&self) -> bool {
         (self.lcdc.get() & 0x1) == 0x1
+    }
+
+    fn bgmap_offset(&self) -> usize {
+        if self.lcdc.get() & 0x8 == 0x8 {
+            0x1c00
+        } else {
+            0x1800
+        }
+    }
+
+    fn bg_line(&self) -> u8 {
+        (self.ly().wrapping_add(self.scy()))
     }
 
     fn mode(&self) -> Mode {
@@ -212,6 +271,30 @@ impl GPU {
 
     fn reset_scan(&self) {
         self.scan.set(0);
+    }
+
+    fn scy(&self) -> u8 {
+        self.scy.get()
+    }
+
+    fn scx(&self) -> u8 {
+        self.scx.get()
+    }
+
+    fn tile_addr(&self, tile: u8) -> usize {
+        if (self.lcdc.get() & 0x10) == 0x10 {
+            (tile * 16) as usize
+        } else {
+            if (tile & 0x80) == 0x80 {
+                0x1000 - ((!tile + 1) * 16) as usize
+            } else {
+                0x1000 + (tile * 16) as usize
+            }
+        }
+    }
+
+    fn bgp_color(&self, color: u8) -> u8 {
+        self.bgp.get() >> ((color & 3) * 2) & 3
     }
 }
 
