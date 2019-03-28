@@ -7,6 +7,25 @@ const SCAN_WIDTH: usize = 160 * 4;
 
 type Screen = [u8; 144 * 160];
 
+struct Tile<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> Tile<'a> {
+    fn new(data: &'a [u8]) -> Tile {
+        Tile { data }
+    }
+
+    fn color_at(&self, x: u8, y: u8) -> u8 {
+        let index = (y * 2) as usize;
+        let t0 = self.data[index];
+        let t1 = self.data[index + 1];
+        let b0 = (t0 >> (7 - x)) & 1;
+        let b1 = ((t1 >> (7 - x)) << 1) & 2;
+        b0 + b1
+    }
+}
+
 struct Sprite<'a> {
     data: &'a [u8],
 }
@@ -200,7 +219,7 @@ impl GPU {
         }
 
         if self.obj_on() {
-            self.render_obj(screen);
+            self.render_sprites(screen);
         }
     }
 
@@ -210,17 +229,14 @@ impl GPU {
         let mut pixel_x = self.scx() & 7;
         let pixel_y = self.bg_line() & 7;
         let vram = self.vram.borrow();
-        let mut tile = vram[tilemap_offset + line_offset];
-        let mut tile_addr = self.tile_addr(tile) + (pixel_y * 2) as usize;
-        let mut t0 = vram[tile_addr];
-        let mut t1 = vram[tile_addr + 1];
+        let mut tile_num = vram[tilemap_offset + line_offset];
+        let mut tile_addr = self.bg_tile_addr(tile_num) as usize;
+        let mut tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
 
         for x in 0..160 {
             // TODO: if this is too slow, we can calculate when vram is updated
             // and keep tile data in separate data structure
-            let b0 = (t0 >> (7 - pixel_x)) & 1;
-            let b1 = ((t1 >> (7 - pixel_x)) << 1) & 2;
-            let t_color = b0 + b1;
+            let t_color = tile.color_at(pixel_x, pixel_y);
             let p_color = self.bgp_color(t_color);
             // push to screen array
             screen[self.ly() as usize * 144 + x] = p_color;
@@ -229,32 +245,61 @@ impl GPU {
             if pixel_x > 7 {
                 pixel_x = 0;
                 line_offset = (line_offset + 1) & 31;
-                tile = vram[tilemap_offset + line_offset];
-                tile_addr = self.tile_addr(tile) + (pixel_y * 2) as usize;
-                t0 = vram[tile_addr];
-                t1 = vram[tile_addr + 1];
+                tile_num = vram[tilemap_offset + line_offset];
+                tile_addr = self.bg_tile_addr(tile_num);
+                tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
             }
         }
     }
 
-    fn render_obj(&self, screen: &mut Screen) {
+    fn render_window(&self, screen: &mut Screen) {}
+
+    fn render_sprites(&self, screen: &mut Screen) {
+        let mut sprite_count = 0;
         for i in 0..0xa0 {
             let oam = self.oam.borrow();
             let sprite_addr = 0xfe00 + i * 4;
             let sprite = Sprite::new(&oam[sprite_addr..sprite_addr + 4]);
             let line = self.ly();
+            let sprite_x = sprite.x();
+            let sprite_y = sprite.y();
 
             // sprite is hidden
-            if sprite.y() >= 144 || sprite.x() >= 160 {
+            if sprite_y >= 144 || sprite_count >= 10 {
                 continue;
             }
 
-            if sprite.y() <= line && sprite.y() + 8 > line {
-                let palette = if sprite.palette() == 0 {
-                    self.obp0.get()
+            if sprite_y <= line && sprite_y + 8 > line {
+                sprite_count += 1;
+                // sprite is on line, but hidden - still counts for max sprites
+                if sprite_x >= 160 {
+                    continue;
+                }
+
+                let pixel_y = if sprite.y_flip() {
+                    7 - (line - sprite_y)
                 } else {
-                    self.obp1.get()
+                    line - sprite_y
                 };
+
+                for x in 0..8 {
+                    let vram = &self.vram.borrow();
+                    let screen_coord = (line * 144 + sprite_x) as usize;
+                    let mut tile_num = sprite.tile();
+                    let mut tile_addr = self.sprite_tile_addr(tile_num);
+                    let mut tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
+                    if sprite_x + x < 160 && (sprite.has_priority() || screen[screen_coord] != 0) {
+                        let pixel_x = if sprite.x_flip() { 7 - x } else { x };
+                        let t_color = tile.color_at(pixel_x, pixel_y);
+                        let p_color = if sprite.palette() == 0 {
+                            self.obp0_color(t_color)
+                        } else {
+                            self.obp1_color(t_color)
+                        };
+
+                        screen[screen_coord] = p_color;
+                    }
+                }
             }
         }
     }
@@ -339,7 +384,7 @@ impl GPU {
         self.scx.get()
     }
 
-    fn tile_addr(&self, tile: u8) -> usize {
+    fn bg_tile_addr(&self, tile: u8) -> usize {
         if (self.lcdc.get() & 0x10) == 0x10 {
             (tile * 16) as usize
         } else {
@@ -351,8 +396,20 @@ impl GPU {
         }
     }
 
+    fn sprite_tile_addr(&self, tile: u8) -> usize {
+        (tile * 16) as usize
+    }
+
     fn bgp_color(&self, color: u8) -> u8 {
         self.bgp.get() >> ((color & 3) * 2) & 3
+    }
+
+    fn obp0_color(&self, color: u8) -> u8 {
+        self.obp0.get() >> ((color & 3) * 2) & 3
+    }
+
+    fn obp1_color(&self, color: u8) -> u8 {
+        self.obp1.get() >> ((color & 3) * 2) & 3
     }
 }
 
