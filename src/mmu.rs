@@ -253,7 +253,18 @@ impl MMU {
                                     _ => (),
                                 },
                                 0x10 | 0x20 | 0x30 => (), // TODO: Sound registers
-                                0x40 => self.gpu.write_byte(addr, value),
+                                0x40 => {
+                                    if addr == 0xff46 {
+                                        let mut oam_bytes = Vec::new();
+                                        let addr = (value as u16) << 8;
+                                        for i in 0..0xa0 {
+                                            oam_bytes.push(self.read_byte(addr + i as u16));
+                                        }
+                                        self.gpu.dma_transfer(oam_bytes);
+                                    } else {
+                                        self.gpu.write_byte(addr, value);
+                                    }
+                                }
                                 _ => (),
                             }
                         }

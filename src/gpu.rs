@@ -1,4 +1,5 @@
 use emulator::IntFlag;
+use mmu::MMU;
 use num::{FromPrimitive, ToPrimitive};
 use std::cell::{Cell, RefCell};
 use std::ops::{BitAnd, BitOr};
@@ -199,7 +200,7 @@ impl GPU {
                     0x43 => self.scx.set(value),
                     0x44 => self.reset_ly(),
                     0x45 => self.lyc.set(value),
-                    0x46 => (), // TODO: DMA transfer
+                    0x46 => (), // DMA transfer - see MMU
                     0x47 => self.bgp.set(value),
                     0x48 => self.obp0.set(value),
                     0x49 => self.obp1.set(value),
@@ -210,6 +211,12 @@ impl GPU {
                 _ => (),
             },
             _ => (),
+        }
+    }
+
+    pub fn dma_transfer(&self, oam_bytes: Vec<u8>) {
+        for i in 0..0xa0 {
+            self.oam.borrow_mut()[i] = oam_bytes[i];
         }
     }
 
