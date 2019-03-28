@@ -7,6 +7,44 @@ const SCAN_WIDTH: usize = 160 * 4;
 
 type Screen = [u8; 144 * 160];
 
+struct Sprite<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> Sprite<'a> {
+    fn new(data: &'a [u8]) -> Sprite {
+        Sprite { data }
+    }
+
+    fn x(&self) -> u8 {
+        self.data[1].wrapping_sub(8)
+    }
+
+    fn y(&self) -> u8 {
+        self.data[0].wrapping_sub(16)
+    }
+
+    fn tile(&self) -> u8 {
+        self.data[2]
+    }
+
+    fn has_priority(&self) -> bool {
+        self.data[3] & 0x80 == 0x80
+    }
+
+    fn y_flip(&self) -> bool {
+        self.data[3] & 0x40 == 0x40
+    }
+
+    fn x_flip(&self) -> bool {
+        self.data[3] & 0x20 == 0x20
+    }
+
+    fn palette(&self) -> u8 {
+        (self.data[3] >> 4) & 1
+    }
+}
+
 pub struct GPU {
     vram: RefCell<[u8; 0x2000]>,
     oam: RefCell<[u8; 0xa0]>,
@@ -199,7 +237,27 @@ impl GPU {
         }
     }
 
-    fn render_obj(&self, screen: &mut Screen) {}
+    fn render_obj(&self, screen: &mut Screen) {
+        for i in 0..0xa0 {
+            let oam = self.oam.borrow();
+            let sprite_addr = 0xfe00 + i * 4;
+            let sprite = Sprite::new(&oam[sprite_addr..sprite_addr + 4]);
+            let line = self.ly();
+
+            // sprite is hidden
+            if sprite.y() >= 144 || sprite.x() >= 160 {
+                continue;
+            }
+
+            if sprite.y() <= line && sprite.y() + 8 > line {
+                let palette = if sprite.palette() == 0 {
+                    self.obp0.get()
+                } else {
+                    self.obp1.get()
+                };
+            }
+        }
+    }
 
     fn lcd_on(&self) -> bool {
         (self.lcdc.get() & 0x80) == 0x80
