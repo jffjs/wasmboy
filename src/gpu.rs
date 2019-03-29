@@ -3,8 +3,6 @@ use num::{FromPrimitive, ToPrimitive};
 use std::cell::{Cell, RefCell};
 use std::ops::{BitAnd, BitOr};
 
-const SCAN_WIDTH: usize = 160 * 4;
-
 type Screen = [u8; 144 * 160];
 
 struct Tile<'a> {
@@ -84,7 +82,6 @@ pub struct GPU {
     obp1: Cell<u8>,
     wy: Cell<u8>,
     wx: Cell<u8>,
-    scan: Cell<usize>,
 }
 
 impl GPU {
@@ -104,7 +101,6 @@ impl GPU {
             obp1: Cell::new(0),
             wy: Cell::new(0),
             wx: Cell::new(0),
-            scan: Cell::new(0),
         }
     }
 
@@ -129,7 +125,6 @@ impl GPU {
                         self.set_mode(Mode::OAM);
                     }
                     self.inc_ly();
-                    self.jump_scan();
                     self.reset_clock();
                 }
             }
@@ -139,7 +134,6 @@ impl GPU {
                     self.inc_ly();
                     if self.ly() > 153 {
                         self.reset_ly();
-                        self.reset_scan();
                         if self.oam_int_on() {
                             interrupts.push(IntFlag::LCDC);
                         }
@@ -159,7 +153,9 @@ impl GPU {
             Mode::VRAM => {
                 if self.clock() >= 43 {
                     self.reset_clock();
-                    interrupts.push(IntFlag::LCDC);
+                    if self.hblank_int_on() {
+                        interrupts.push(IntFlag::LCDC);
+                    }
                     self.set_mode(Mode::Hblank);
                     if self.lcd_on() {
                         self.render_scanline(screen);
@@ -243,6 +239,10 @@ impl GPU {
             self.render_bg(screen);
         }
 
+        if self.window_on() {
+            self.render_window(screen);
+        }
+
         if self.obj_on() {
             self.render_sprites(screen);
         }
@@ -280,8 +280,23 @@ impl GPU {
     fn render_window(&self, screen: &mut Screen) {
         let line = self.ly();
         let wy = self.wy();
-        if line < wy || wy > 143 {
+        let wx = self.wx();
+        if line < wy || wy > 143 || wx > 159 {
             return;
+        }
+
+        let tilemap_offset = (self.winmap_offset() + (self.win_line() as usize)) >> 3;
+        let vram = self.vram.borrow();
+
+        for x in wx..160 {
+            let line_offset = ((x - wx) >> 3) as usize;
+            let tile_num = vram[tilemap_offset + line_offset];
+            let tile_addr = self.bg_tile_addr(tile_num);
+            let tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
+
+            let t_color = tile.color_at(x - wx, line);
+            let p_color = self.bgp_color(t_color);
+            screen[(line * 144 + x) as usize] = p_color;
         }
     }
 
@@ -396,6 +411,10 @@ impl GPU {
         }
     }
 
+    fn win_line(&self) -> u8 {
+        (self.ly() - self.wy())
+    }
+
     fn mode(&self) -> Mode {
         Mode::from_u8(self.stat.get() & 0x3).unwrap()
     }
@@ -428,18 +447,6 @@ impl GPU {
         self.ly.set(0);
     }
 
-    fn scan(&self) -> usize {
-        self.scan.get()
-    }
-
-    fn jump_scan(&self) {
-        self.scan.set(self.scan.get() + SCAN_WIDTH);
-    }
-
-    fn reset_scan(&self) {
-        self.scan.set(0);
-    }
-
     fn scy(&self) -> u8 {
         self.scy.get()
     }
@@ -456,6 +463,7 @@ impl GPU {
         self.wx.get().wrapping_sub(7)
     }
 
+    // Also used for window tile address
     fn bg_tile_addr(&self, tile: u8) -> usize {
         if (self.lcdc.get() & 0x10) == 0x10 {
             (tile * 16) as usize
