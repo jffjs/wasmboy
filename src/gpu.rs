@@ -118,7 +118,9 @@ impl GPU {
                         }
                         return interrupts;
                     } else {
-                        interrupts.push(IntFlag::LCDC);
+                        if self.oam_int_on() {
+                            interrupts.push(IntFlag::LCDC);
+                        }
                         self.set_mode(Mode::OAM);
                     }
                     self.inc_ly();
@@ -133,13 +135,18 @@ impl GPU {
                     if self.ly() > 153 {
                         self.reset_ly();
                         self.reset_scan();
-                        interrupts.push(IntFlag::LCDC);
+                        if self.oam_int_on() {
+                            interrupts.push(IntFlag::LCDC);
+                        }
                         self.set_mode(Mode::OAM);
                     }
                 }
             }
             Mode::OAM => {
                 if self.clock() >= 20 {
+                    if self.lyc_int_on() && self.lyc.get() == self.ly() {
+                        interrupts.push(IntFlag::LCDC);
+                    }
                     self.set_mode(Mode::VRAM);
                     self.reset_clock();
                 }
@@ -361,6 +368,14 @@ impl GPU {
         (self.ly().wrapping_add(self.scy()))
     }
 
+    fn winmap_offset(&self) -> usize {
+        if self.lcdc.get() & 0x40 == 0x40 {
+            0x1c00
+        } else {
+            0x1800
+        }
+    }
+
     fn mode(&self) -> Mode {
         Mode::from_u8(self.stat.get() & 0x3).unwrap()
     }
@@ -411,6 +426,14 @@ impl GPU {
 
     fn scx(&self) -> u8 {
         self.scx.get()
+    }
+
+    fn wy(&self) -> u8 {
+        self.wy.get()
+    }
+
+    fn wx(&self) -> u8 {
+        self.wx.get()
     }
 
     fn bg_tile_addr(&self, tile: u8) -> usize {
