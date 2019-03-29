@@ -144,7 +144,8 @@ impl CPU {
     pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), String> {
         let pc = self.pc;
         self.pc = self.pc.wrapping_add(1);
-        match Opcode::from_u8(mmu.read_byte(pc)) {
+        let opcode = Opcode::from_u8(mmu.read_byte(pc));
+        match opcode {
             Some(op) => match op {
                 Opcode::NOP => {
                     self.m = 1;
@@ -2239,7 +2240,9 @@ impl CPU {
                     self.m = 4;
                 }
             },
-            None => return Err("Unsupported operation.".to_owned()),
+            None => {
+                println!("Unsupported operation: {:?}", mmu.read_byte(pc));
+            }
         }
 
         self.clock.m += self.m as u32;
@@ -4364,7 +4367,9 @@ impl CPU {
                     self.m = 2;
                 }
             },
-            None => return Err("Unsupported operation.".to_owned()),
+            None => {
+                println!("Unsupported ext operation: {:?}", mmu.read_byte(pc));
+            }
         }
 
         self.clock.m += self.m as u32;
