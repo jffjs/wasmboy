@@ -28,11 +28,12 @@ impl<'a> Tile<'a> {
 
 struct Sprite<'a> {
     data: &'a [u8],
+    big: bool,
 }
 
 impl<'a> Sprite<'a> {
-    fn new(data: &'a [u8]) -> Sprite {
-        Sprite { data }
+    fn new(data: &'a [u8], big: bool) -> Sprite {
+        Sprite { data, big }
     }
 
     fn x(&self) -> u8 {
@@ -44,7 +45,11 @@ impl<'a> Sprite<'a> {
     }
 
     fn tile(&self) -> u8 {
-        self.data[2]
+        if self.big {
+            self.data[2] & 0xfe
+        } else {
+            self.data[2]
+        }
     }
 
     fn has_priority(&self) -> bool {
@@ -272,14 +277,20 @@ impl GPU {
         }
     }
 
-    fn render_window(&self, screen: &mut Screen) {}
+    fn render_window(&self, screen: &mut Screen) {
+        let line = self.ly();
+        let wy = self.wy();
+        if line < wy || wy > 143 {
+            return;
+        }
+    }
 
     fn render_sprites(&self, screen: &mut Screen) {
         let mut sprite_count = 0;
         for i in 0..0xa0 {
             let oam = self.oam.borrow();
             let sprite_addr = 0xfe00 + i * 4;
-            let sprite = Sprite::new(&oam[sprite_addr..sprite_addr + 4]);
+            let sprite = Sprite::new(&oam[sprite_addr..sprite_addr + 4], self.obj_size() == 16);
             let line = self.ly();
             let sprite_x = sprite.x();
             let sprite_y = sprite.y();
@@ -307,7 +318,8 @@ impl GPU {
                     let screen_coord = (line * 144 + sprite_x) as usize;
                     let mut tile_num = sprite.tile();
                     let mut tile_addr = self.sprite_tile_addr(tile_num);
-                    let mut tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
+                    let mut tile =
+                        Tile::new(&vram[tile_addr..tile_addr + (self.obj_size() as usize) * 2]);
                     if sprite_x + x < 160 && (sprite.has_priority() || screen[screen_coord] != 0) {
                         let pixel_x = if sprite.x_flip() { 7 - x } else { x };
                         let t_color = tile.color_at(pixel_x, pixel_y);
@@ -334,6 +346,14 @@ impl GPU {
 
     fn obj_on(&self) -> bool {
         (self.lcdc.get() & 0x2) == 0x2
+    }
+
+    fn obj_size(&self) -> u8 {
+        if (self.lcdc.get() & 0x4) == 0x4 {
+            16
+        } else {
+            8
+        }
     }
 
     fn bg_on(&self) -> bool {
@@ -433,7 +453,7 @@ impl GPU {
     }
 
     fn wx(&self) -> u8 {
-        self.wx.get()
+        self.wx.get().wrapping_sub(7)
     }
 
     fn bg_tile_addr(&self, tile: u8) -> usize {
