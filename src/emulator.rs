@@ -50,11 +50,12 @@ impl Emulator {
             // Run interrupt routine
             self.check_interrupts();
 
-            if let Some(gpu_int) = self.gpu.execute(self.cpu.m(), screen) {
-                if gpu_int == IntFlag::Vblank {
+            let interrupts = self.gpu.execute(self.cpu.m(), screen);
+            for int in interrupts {
+                if int == IntFlag::Vblank {
                     // TODO: add screen render hook here
                 }
-                self.mmu.set_iflag(gpu_int);
+                self.mmu.set_iflag(int);
             }
 
             if let Some(timer_int) = self.timer.inc(self.cpu.m()) {

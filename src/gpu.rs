@@ -1,5 +1,4 @@
 use emulator::IntFlag;
-use mmu::MMU;
 use num::{FromPrimitive, ToPrimitive};
 use std::cell::{Cell, RefCell};
 use std::ops::{BitAnd, BitOr};
@@ -104,7 +103,8 @@ impl GPU {
         }
     }
 
-    pub fn execute(&self, cpu_m: u8, screen: &mut Screen) -> Option<IntFlag> {
+    pub fn execute(&self, cpu_m: u8, screen: &mut Screen) -> Vec<IntFlag> {
+        let mut interrupts = Vec::new();
         self.inc_clock(cpu_m);
 
         match self.mode() {
@@ -112,8 +112,13 @@ impl GPU {
                 if self.clock() >= 51 {
                     if self.ly() == 143 {
                         self.set_mode(Mode::Vblank);
-                        return Some(IntFlag::Vblank);
+                        interrupts.push(IntFlag::Vblank);
+                        if self.vblank_int_on() {
+                            interrupts.push(IntFlag::LCDC);
+                        }
+                        return interrupts;
                     } else {
+                        interrupts.push(IntFlag::LCDC);
                         self.set_mode(Mode::OAM);
                     }
                     self.inc_ly();
@@ -128,6 +133,7 @@ impl GPU {
                     if self.ly() > 153 {
                         self.reset_ly();
                         self.reset_scan();
+                        interrupts.push(IntFlag::LCDC);
                         self.set_mode(Mode::OAM);
                     }
                 }
@@ -141,6 +147,7 @@ impl GPU {
             Mode::VRAM => {
                 if self.clock() >= 43 {
                     self.reset_clock();
+                    interrupts.push(IntFlag::LCDC);
                     self.set_mode(Mode::Hblank);
                     if self.lcd_on() {
                         self.render_scanline(screen);
@@ -148,8 +155,7 @@ impl GPU {
                 }
             }
         }
-
-        None
+        interrupts
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
@@ -195,7 +201,7 @@ impl GPU {
                 }
                 0xf => match addr & 0xff {
                     0x40 => self.lcdc.set(value),
-                    0x41 => self.stat.set(value),
+                    0x41 => self.stat.set(value & 0x78),
                     0x42 => self.scy.set(value),
                     0x43 => self.scx.set(value),
                     0x44 => self.reset_ly(),
@@ -325,6 +331,22 @@ impl GPU {
 
     fn bg_on(&self) -> bool {
         (self.lcdc.get() & 0x1) == 0x1
+    }
+
+    fn lyc_int_on(&self) -> bool {
+        (self.stat.get() & 0x40) == 0x40
+    }
+
+    fn oam_int_on(&self) -> bool {
+        (self.stat.get() & 0x20) == 0x20
+    }
+
+    fn vblank_int_on(&self) -> bool {
+        (self.stat.get() & 0x10) == 0x10
+    }
+
+    fn hblank_int_on(&self) -> bool {
+        (self.stat.get() & 0x8) == 0x8
     }
 
     fn bgmap_offset(&self) -> usize {
