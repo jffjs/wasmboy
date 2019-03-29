@@ -91,7 +91,7 @@ impl Timer {
         1 => 1,
         2 => 4,
         3 => 16,
-        _ => panic!("unreachable"),
+        _ => panic!("timer unreachable"),
       };
 
       if self.clock.main() >= threshold {

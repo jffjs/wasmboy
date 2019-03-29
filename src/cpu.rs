@@ -168,7 +168,6 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::INCB => {
-                    println!("inc b");
                     self.reset_flag(Flag::N);
                     if check_half_carry_8(self.b, 1) {
                         self.set_flag(Flag::H);
@@ -4405,9 +4404,9 @@ fn check_borrow_8(a: u8, b: u8) -> bool {
 mod tests {
     use super::*;
     use cartridge::Cartridge;
+    use gpu::GPU;
     use std::rc::Rc;
     use timer::Timer;
-    use gpu::GPU;
 
     fn mmu_stub(b1: u8, b2: u8, b3: u8) -> MMU {
         let mut cart_data = [0; 0x148];

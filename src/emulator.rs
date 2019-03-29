@@ -10,7 +10,6 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct Emulator {
-    debug: bool,
     cpu: CPU,
     gpu: Rc<GPU>,
     mmu: MMU,
@@ -20,7 +19,7 @@ pub struct Emulator {
 #[wasm_bindgen]
 impl Emulator {
     #[wasm_bindgen(constructor)]
-    pub fn new(rom: &[u8], debug: bool) -> Emulator {
+    pub fn new(rom: &[u8]) -> Emulator {
         let cart = Cartridge::new(rom);
         let timer = Rc::new(Timer::new());
         let gpu = Rc::new(GPU::new());
@@ -32,35 +31,37 @@ impl Emulator {
             gpu: gpu.clone(),
             mmu,
             timer: timer.clone(),
-            debug,
         }
     }
 
     #[wasm_bindgen]
-    pub fn frame(&mut self, screen: &mut [u8; 144 * 160]) {
+    pub fn frame(&mut self, screen: &mut [u8]) {
         // (144 scanlines + 10-line vblank) * 114 M-cycles
         const M_CYCLES: u32 = (144 + 10) * 114;
         let fclock = self.cpu.clock_m() + M_CYCLES;
         while self.cpu.clock_m() < fclock {
             // Execute next instruction
             if !self.cpu.halt() {
-                self.cpu.exec(&mut self.mmu).expect("CPU exec error.");
+                match self.cpu.exec(&mut self.mmu) {
+                    Ok(_) => (),
+                    Err(msg) => panic!(msg),
+                }
             }
 
             // Run interrupt routine
-            self.check_interrupts();
+            // self.check_interrupts();
 
-            let interrupts = self.gpu.execute(self.cpu.m(), screen);
-            for int in interrupts {
-                if int == IntFlag::Vblank {
-                    // TODO: add screen render hook here
-                }
-                self.mmu.set_iflag(int);
-            }
+            // let interrupts = self.gpu.execute(self.cpu.m(), screen);
+            // for int in interrupts {
+            //     if int == IntFlag::Vblank {
+            //         // TODO: add screen render hook here
+            //     }
+            //     self.mmu.set_iflag(int);
+            // }
 
-            if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
-                self.mmu.set_iflag(timer_int);
-            }
+            // if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
+            //     self.mmu.set_iflag(timer_int);
+            // }
         }
     }
 
@@ -75,8 +76,25 @@ impl Emulator {
     }
 
     #[wasm_bindgen]
-    pub fn dbg_step(&mut self) {
-        self.cpu.exec(&mut self.mmu).expect("CPU exec error.");
+    pub fn dbg_step(&mut self, screen: &mut [u8]) {
+        if !self.cpu.halt() {
+            self.cpu.exec(&mut self.mmu).expect("CPU exec error.");
+        }
+
+        // Run interrupt routine
+        self.check_interrupts();
+
+        let interrupts = self.gpu.execute(self.cpu.m(), screen);
+        for int in interrupts {
+            if int == IntFlag::Vblank {
+                // TODO: add screen render hook here
+            }
+            self.mmu.set_iflag(int);
+        }
+
+        if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
+            self.mmu.set_iflag(timer_int);
+        }
     }
 
     #[wasm_bindgen]

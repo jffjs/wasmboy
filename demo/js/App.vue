@@ -1,7 +1,7 @@
 <template>
   <div id="app">
     <div class="debugger">
-      <div class="memory-cpu">
+      <div class="memory-cpu" v-if="cpuSnapshot">
         <HexViewer :editable="true" :pc="cpuSnapshot.pc" :bytes="rom"></HexViewer>
         <CpuSnapshot id="cpu-snapshot" :snapshot="cpuSnapshot"></CpuSnapshot>
       </div>
@@ -9,8 +9,11 @@
         <input type="file" @change="loadRom">
         <button @click="step()">Step</button>
         <button @click="reset()">Reset</button>
+        <button @click="pause()">Pause</button>
+        <button @click="start()">Start</button>
       </div>
     </div>
+    <canvas ref="screen" id="screen" width="160" height="144"></canvas>
   </div>
 </template>
 
@@ -19,15 +22,15 @@ import Vue from "vue";
 import range from "lodash-es/range";
 import CpuSnapshot from "./components/CpuSnapshot.vue";
 import HexViewer from "./components/HexViewer.vue";
-import { Emulator } from "../../pkg";
+import { Gameboy } from "./gameboy";
 
+let gb;
 let rom = new Uint8Array(1000);
 rom[0x100] = 0x04;
 rom[0x101] = 0x04;
 rom[0x102] = 0x3d;
 
-let gb = new Emulator(rom, true);
-
+const canvas = document.getElementById("screen");
 export default {
   name: "app",
   components: {
@@ -37,8 +40,13 @@ export default {
   data: function() {
     return {
       rom: Array.from(rom),
-      cpuSnapshot: gb.dbg_cpu_snapshot()
+      cpuSnapshot: null
     };
+  },
+  mounted: function() {
+    const canvas = this.$refs.screen;
+    gb = new Gameboy(canvas.getContext("2d"), rom);
+    this.cpuSnapshot = gb.snapshot();
   },
   methods: {
     loadRom: function(event) {
@@ -47,19 +55,25 @@ export default {
         const reader = new FileReader();
         reader.onload = readerEvent => {
           rom = new Uint8Array(readerEvent.target.result);
-          gb = new Emulator(rom, true);
+          gb.loadROM(rom);
           this.rom = Array.from(rom);
         };
         reader.readAsArrayBuffer(files[0]);
       }
     },
     step: function() {
-      gb.dbg_step();
-      this.cpuSnapshot = gb.dbg_cpu_snapshot();
+      gb.step();
+      this.cpuSnapshot = gb.snapshot();
     },
     reset: function() {
-      gb = new Emulator(Uint8Array.from(this.rom), true);
-      this.cpuSnapshot = gb.dbg_cpu_snapshot();
+      gb.reset();
+      this.cpuSnapshot = gb.snapshot();
+    },
+    start: function() {
+      gb.start();
+    },
+    pause: function() {
+      gb.pause();
     }
   }
 };

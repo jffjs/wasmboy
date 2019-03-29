@@ -3,7 +3,7 @@ use num::{FromPrimitive, ToPrimitive};
 use std::cell::{Cell, RefCell};
 use std::ops::{BitAnd, BitOr};
 
-type Screen = [u8; 144 * 160];
+type Screen = [u8];
 
 struct Tile<'a> {
     data: &'a [u8],
