@@ -22,15 +22,17 @@ export class Gameboy {
   }
 
   renderFrame() {
-    this.core.frame(this.screen);
+    const screen = new Uint8Array(SCREEN_SIZE);
+    this.core.frame(screen);
+    console.log('exec frame');
     const imageData = new Uint8ClampedArray(SCREEN_SIZE * 4);
     for (let i = 0; i < SCREEN_SIZE; i++) {
-      let color = this.colors[this.screen[i]];
+      let color = this.colors[screen[i]];
       for (let k = 0; k < 4; k++) {
         imageData[i + k] = color[k];
       }
     }
-    ctx.putImageData(new ImageData(screen, SCREEN_WIDTH, SCREEN_HEIGHT));
+    this.context.putImageData(new ImageData(imageData, SCREEN_WIDTH, SCREEN_HEIGHT), 0, 0);
   }
 
   step() {
@@ -48,10 +50,11 @@ export class Gameboy {
   start() {
     if (this.core && !this.interval) {
       this.core.run();
-      // this.interval = setInterval(() => this.renderFrame(), 1);
-      for (let i = 0; i < 100000; i++) {
-        this.renderFrame();
-      }
+      this.interval = setInterval(() => this.renderFrame(), 1);
+      // for (let i = 0; i < 1000; i++) {
+      //   console.log(i);
+      //   this.renderFrame();
+      // }
       this.running = true;
     }
   }

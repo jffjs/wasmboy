@@ -286,12 +286,10 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::STOP => {
-                    if self.pc == 0 {
+                    if mmu.read_byte(self.pc) == 0 {
                         self.pc = self.pc.wrapping_add(1);
                         self.stop = true;
                         self.m = 1;
-                    } else {
-                        return Err("Invalid opcode - STOP should be 0x10".to_owned());
                     }
                 }
                 Opcode::LDDEnn => {
@@ -2241,7 +2239,7 @@ impl CPU {
                 }
             },
             None => {
-                println!("Unsupported operation: {:?}", mmu.read_byte(pc));
+                // println!("Unsupported operation: {}", mmu.read_byte(pc));
             }
         }
 

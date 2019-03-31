@@ -49,19 +49,19 @@ impl Emulator {
             }
 
             // Run interrupt routine
-            // self.check_interrupts();
+            self.check_interrupts();
 
-            // let interrupts = self.gpu.execute(self.cpu.m(), screen);
-            // for int in interrupts {
-            //     if int == IntFlag::Vblank {
-            //         // TODO: add screen render hook here
-            //     }
-            //     self.mmu.set_iflag(int);
-            // }
+            let interrupts = self.gpu.execute(self.cpu.m(), screen);
+            for int in interrupts {
+                if int == IntFlag::Vblank {
+                    // TODO: add screen render hook here
+                }
+                self.mmu.set_iflag(int);
+            }
 
-            // if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
-            //     self.mmu.set_iflag(timer_int);
-            // }
+            if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
+                self.mmu.set_iflag(timer_int);
+            }
         }
     }
 

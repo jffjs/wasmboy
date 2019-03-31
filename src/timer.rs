@@ -37,7 +37,7 @@ impl Clock {
   }
 
   fn inc_div(&self) {
-    self.div.set(self.div.get() + 1);
+    self.div.set(self.div.get().wrapping_add(1));
   }
 
   fn reset_div(&self) {
@@ -45,7 +45,7 @@ impl Clock {
   }
 
   fn inc_main(&self) {
-    self.main.set(self.main.get() + 1);
+    self.main.set(self.main.get().wrapping_add(1));
   }
 
   fn reset_main(&self) {

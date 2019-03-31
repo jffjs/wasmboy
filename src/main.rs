@@ -11,7 +11,7 @@ fn main() -> io::Result<()> {
     let mut gb = wasmboy::emulator::Emulator::new(&rom);
     let mut screen = [0; 160 * 144];
 
-    for _ in 0..1_000_000 {
+    for _ in 0..1_000 {
         gb.frame(&mut screen);
     }
 

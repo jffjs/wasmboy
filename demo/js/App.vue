@@ -74,6 +74,7 @@ export default {
     },
     pause: function() {
       gb.pause();
+      this.cpuSnapshot = gb.snapshot();
     }
   }
 };
