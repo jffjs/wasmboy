@@ -2,7 +2,17 @@
   <div id="app">
     <div class="debugger">
       <div class="memory-cpu" v-if="cpuSnapshot">
-        <HexViewer :editable="true" :pc="cpuSnapshot.pc" :bytes="rom"></HexViewer>
+        <div class="mem">
+          <input placeholder="ff01" v-model="newAddr">
+          <button @click="goToAddr">Go to</button>
+          <HexViewer
+            :editable="false"
+            :pc="addr"
+            :bytes="memSnapshot"
+            :lines="hexViewerLines"
+            :bytesPerLine="hexViewerBytesPerLine"
+          ></HexViewer>
+        </div>
         <CpuSnapshot id="cpu-snapshot" :snapshot="cpuSnapshot"></CpuSnapshot>
       </div>
       <div class="controls">
@@ -25,12 +35,6 @@ import HexViewer from "./components/HexViewer.vue";
 import { Gameboy } from "./gameboy";
 
 let gb;
-let rom = new Uint8Array(1000);
-rom[0x100] = 0x04;
-rom[0x101] = 0x04;
-rom[0x102] = 0x3d;
-
-const canvas = document.getElementById("screen");
 export default {
   name: "app",
   components: {
@@ -39,42 +43,60 @@ export default {
   },
   data: function() {
     return {
-      rom: Array.from(rom),
-      cpuSnapshot: null
+      addr: 0,
+      newAddr: null,
+      memSnapshot: [],
+      cpuSnapshot: null,
+      hexViewerLines: 12,
+      hexViewerBytesPerLine: 8
     };
   },
   mounted: function() {
-    const canvas = this.$refs.screen;
-    gb = new Gameboy(canvas.getContext("2d"), rom);
-    this.cpuSnapshot = gb.snapshot();
+    // gb = new Gameboy(canvas.getContext("2d"), rom);
+    // this.updateSnapshots();
   },
   methods: {
     loadRom: function(event) {
+      const canvas = this.$refs.screen;
       const files = event.target.files;
       if (files && files.length > 0) {
         const reader = new FileReader();
         reader.onload = readerEvent => {
-          rom = new Uint8Array(readerEvent.target.result);
-          gb.loadROM(rom);
-          this.rom = Array.from(rom);
+          const rom = new Uint8Array(readerEvent.target.result);
+          gb = new Gameboy(canvas.getContext("2d"), rom);
+          this.updateSnapshots();
+          this.addr = this.cpuSnapshot.pc;
         };
         reader.readAsArrayBuffer(files[0]);
       }
     },
     step: function() {
       gb.step();
-      this.cpuSnapshot = gb.snapshot();
+      this.updateSnapshots();
     },
     reset: function() {
       gb.reset();
-      this.cpuSnapshot = gb.snapshot();
+      this.updateSnapshots();
     },
     start: function() {
       gb.start();
     },
     pause: function() {
       gb.pause();
-      this.cpuSnapshot = gb.snapshot();
+      this.updateSnapshots();
+    },
+    goToAddr: function() {
+      this.addr = parseInt(this.newAddr, 16);
+      this.updateSnapshots();
+    },
+    updateSnapshots: function() {
+      this.cpuSnapshot = gb.cpuSnapshot();
+      this.memSnapshot = Array.from(
+        gb.memSnapshot(
+          this.addr,
+          this.hexViewerLines * this.hexViewerBytesPerLine
+        )
+      );
     }
   }
 };

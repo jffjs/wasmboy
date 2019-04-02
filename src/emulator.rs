@@ -23,9 +23,10 @@ impl Emulator {
         let cart = Cartridge::new(rom);
         let timer = Rc::new(Timer::new());
         let gpu = Rc::new(GPU::new());
-        let mmu = MMU::new(cart, timer.clone(), gpu.clone());
+        let mut mmu = MMU::new(cart, timer.clone(), gpu.clone());
         let mut cpu = CPU::new();
         cpu.post_bios();
+        mmu.post_bios();
         Emulator {
             cpu,
             gpu: gpu.clone(),
@@ -75,33 +76,6 @@ impl Emulator {
         self.cpu.stop = true;
     }
 
-    #[wasm_bindgen]
-    pub fn dbg_step(&mut self, screen: &mut [u8]) {
-        if !self.cpu.halt() {
-            self.cpu.exec(&mut self.mmu).expect("CPU exec error.");
-        }
-
-        // Run interrupt routine
-        self.check_interrupts();
-
-        let interrupts = self.gpu.execute(self.cpu.m(), screen);
-        for int in interrupts {
-            if int == IntFlag::Vblank {
-                // TODO: add screen render hook here
-            }
-            self.mmu.set_iflag(int);
-        }
-
-        if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
-            self.mmu.set_iflag(timer_int);
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn dbg_cpu_snapshot(&mut self) -> JsValue {
-        JsValue::from_serde(&self.cpu).unwrap()
-    }
-
     fn check_interrupts(&mut self) {
         if self.cpu.ime && self.mmu.ie() != 0 && self.mmu.iflag() != 0 {
             self.cpu.halt = true;
@@ -128,6 +102,43 @@ impl Emulator {
                 self.cpu.ime = true;
             }
         }
+    }
+
+    #[wasm_bindgen]
+    pub fn dbg_step(&mut self, screen: &mut [u8]) {
+        if !self.cpu.halt() {
+            self.cpu.exec(&mut self.mmu).expect("CPU exec error.");
+        }
+
+        // Run interrupt routine
+        self.check_interrupts();
+
+        let interrupts = self.gpu.execute(self.cpu.m(), screen);
+        for int in interrupts {
+            if int == IntFlag::Vblank {
+                // TODO: add screen render hook here
+            }
+            self.mmu.set_iflag(int);
+        }
+
+        if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
+            self.mmu.set_iflag(timer_int);
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn dbg_cpu_snapshot(&self) -> JsValue {
+        JsValue::from_serde(&self.cpu).unwrap()
+    }
+
+    #[wasm_bindgen]
+    pub fn dbg_mem_snapshot(&self, addr: usize, length: usize) -> Box<[u8]> {
+        let mut snapshot = Vec::new();
+        for i in 0..length {
+            let byte = self.mmu.read_byte((addr + i) as u16);
+            snapshot.push(byte);
+        }
+        snapshot.into_boxed_slice()
     }
 }
 

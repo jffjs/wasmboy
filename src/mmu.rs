@@ -47,6 +47,28 @@ impl MMU {
         self.iflag &= !iflag;
     }
 
+    pub fn post_bios(&mut self) {
+        self.write_byte(0xff10, 0x80);
+        self.write_byte(0xff11, 0xbf);
+        self.write_byte(0xff12, 0xf3);
+        self.write_byte(0xff14, 0xbf);
+        self.write_byte(0xff16, 0x3f);
+        self.write_byte(0xff19, 0xbf);
+        self.write_byte(0xff1a, 0x7f);
+        self.write_byte(0xff1b, 0xff);
+        self.write_byte(0xff1c, 0x9f);
+        self.write_byte(0xff1e, 0xbf);
+        self.write_byte(0xff20, 0xff);
+        self.write_byte(0xff23, 0xbf);
+        self.write_byte(0xff24, 0x77);
+        self.write_byte(0xff25, 0xf3);
+        self.write_byte(0xff26, 0xf1);
+        self.write_byte(0xff40, 0x91);
+        self.write_byte(0xff47, 0xfc);
+        self.write_byte(0xff48, 0xff);
+        self.write_byte(0xff49, 0xff);
+    }
+
     pub fn read_byte(&self, addr: u16) -> u8 {
         match (addr & 0xf000) >> 12 {
             // BIOS or ROM bank 0 (BIOS will be ignored)
@@ -458,5 +480,12 @@ mod test {
 
         mmu.write_byte(0x2000, 0x82);
         assert_eq!(mmu.cart.rom_bank, 3);
+    }
+
+    #[test]
+    fn test_post_bios() {
+        let mut mmu = MMU::new(mbc2_cart(), timer(), gpu());
+        mmu.post_bios();
+        assert_eq!(mmu.read_byte(0xff40), 0x91);
     }
 }

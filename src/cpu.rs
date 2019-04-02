@@ -4370,7 +4370,7 @@ impl CPU {
             }
         }
 
-        self.clock.m += self.m as u32;
+        self.clock.m.wrapping_add(self.m as u32);
         Ok(())
     }
 }

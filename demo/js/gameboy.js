@@ -41,9 +41,15 @@ export class Gameboy {
     }
   }
 
-  snapshot() {
+  cpuSnapshot() {
     if (this.core) {
       return this.core.dbg_cpu_snapshot();
+    }
+  }
+
+  memSnapshot(addr, length) {
+    if (this.core) {
+      return this.core.dbg_mem_snapshot(addr, length);
     }
   }
 

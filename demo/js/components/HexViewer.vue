@@ -43,10 +43,7 @@ export default {
   },
   computed: {
     byteChunks: function() {
-      return take(
-        chunk(this.bytes.slice(this.startAddress), this.bytesPerLine),
-        this.lines
-      );
+      return chunk(this.bytes, this.bytesPerLine);
     }
   },
   methods: {
