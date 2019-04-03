@@ -24,12 +24,11 @@ export class Gameboy {
   renderFrame() {
     const screen = new Uint8Array(SCREEN_SIZE);
     this.core.frame(screen);
-    console.log('exec frame');
     const imageData = new Uint8ClampedArray(SCREEN_SIZE * 4);
     for (let i = 0; i < SCREEN_SIZE; i++) {
       let color = this.colors[screen[i]];
       for (let k = 0; k < 4; k++) {
-        imageData[i + k] = color[k];
+        imageData[i * 4 + k] = color[k];
       }
     }
     this.context.putImageData(new ImageData(imageData, SCREEN_WIDTH, SCREEN_HEIGHT), 0, 0);

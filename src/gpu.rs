@@ -560,4 +560,15 @@ mod test {
         gpu.set_mode(Mode::VRAM);
         assert_eq!(gpu.mode(), Mode::VRAM);
     }
+
+    #[test]
+    fn test_render_bg() {
+        let gpu = GPU::new();
+        gpu.lcdc.set(0x91);
+        let mut vram = gpu.vram.borrow_mut();
+        for i in 0..20 {
+            // vram[i] = 0xff;
+            // vram[i]
+        }
+    }
 }
