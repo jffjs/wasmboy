@@ -565,10 +565,22 @@ mod test {
     fn test_render_bg() {
         let gpu = GPU::new();
         gpu.lcdc.set(0x91);
-        let mut vram = gpu.vram.borrow_mut();
+        gpu.bgp.set(0xe4);
+
         for i in 0..20 {
-            // vram[i] = 0xff;
-            // vram[i]
+            let mut vram = gpu.vram.borrow_mut();
+
+            vram[i * 20] = 0xff;
+        }
+        for i in 0..20 {
+            let mut vram = gpu.vram.borrow_mut();
+            vram[i * 20 + 1] = 0xff;
+        }
+
+        let mut screen: [u8; 160] = [0; 160];
+        gpu.render_bg(&mut screen);
+        for i in 0..160 {
+            assert_eq!(screen[i], 3);
         }
     }
 }

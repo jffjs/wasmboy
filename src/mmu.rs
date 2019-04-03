@@ -488,4 +488,18 @@ mod test {
         mmu.post_bios();
         assert_eq!(mmu.read_byte(0xff40), 0x91);
     }
+
+    #[test]
+    fn test_gpu_integration() {
+        let gpu = gpu();
+        let mut mmu = MMU::new(mbc1_cart(), timer(), gpu);
+
+        mmu.write_byte(0x8000, 1);
+        mmu.write_byte(0x80ff, 2);
+        mmu.write_byte(0x8fff, 3);
+
+        assert_eq!(mmu.read_byte(0x8000), 1);
+        assert_eq!(mmu.read_byte(0x80ff), 2);
+        assert_eq!(mmu.read_byte(0x8fff), 3);
+    }
 }
