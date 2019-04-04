@@ -2079,7 +2079,7 @@ impl CPU {
                 }
                 Opcode::LDH_n_A => {
                     let n = mmu.read_byte(self.pc);
-                    self.pc.wrapping_add(1);
+                    self.pc = self.pc.wrapping_add(1);
                     let addr = 0xff00 + (n as u16);
                     mmu.write_byte(addr, self.a);
                     self.m = 3;

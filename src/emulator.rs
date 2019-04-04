@@ -78,7 +78,7 @@ impl Emulator {
 
     fn check_interrupts(&mut self) {
         if self.cpu.ime && self.mmu.ie() != 0 && self.mmu.iflag() != 0 {
-            self.cpu.halt = true;
+            self.cpu.halt = false;
             self.cpu.ime = false;
             let int_fired = self.mmu.ie() & self.mmu.iflag();
 

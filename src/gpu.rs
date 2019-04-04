@@ -249,7 +249,9 @@ impl GPU {
     }
 
     fn render_bg(&self, screen: &mut Screen) {
-        let tilemap_offset = self.bgmap_offset().wrapping_add(self.bg_line() as usize) >> 3;
+        let tilemap_offset = self
+            .bgmap_offset()
+            .wrapping_add((self.bg_line() >> 3) as usize);
         let mut line_offset = (self.scx() >> 3) as usize;
         let mut pixel_x = self.scx() & 7;
         let pixel_y = self.bg_line() & 7;
@@ -302,9 +304,9 @@ impl GPU {
 
     fn render_sprites(&self, screen: &mut Screen) {
         let mut sprite_count = 0;
-        for i in 0..0xa0 {
+        for i in 0..40 {
             let oam = self.oam.borrow();
-            let sprite_addr = 0xfe00 + i * 4;
+            let sprite_addr = i * 4;
             let sprite = Sprite::new(&oam[sprite_addr..sprite_addr + 4], self.obj_size() == 16);
             let line = self.ly();
             let sprite_x = sprite.x();
@@ -420,7 +422,8 @@ impl GPU {
     }
 
     fn set_mode(&self, mode: Mode) {
-        self.stat.replace(mode | self.stat.get());
+        let stat = mode | (self.stat.get() & 0xfc);
+        self.stat.replace(stat);
     }
 
     fn clock(&self) -> u8 {
@@ -465,13 +468,14 @@ impl GPU {
 
     // Also used for window tile address
     fn bg_tile_addr(&self, tile: u8) -> usize {
+        let t = tile as usize;
         if (self.lcdc.get() & 0x10) == 0x10 {
-            (tile * 16) as usize
+            t * 16
         } else {
-            if (tile & 0x80) == 0x80 {
-                0x1000 - ((!tile + 1) * 16) as usize
+            if (t & 0x80) == 0x80 {
+                0x1000 - (!t + 1) * 16
             } else {
-                0x1000 + (tile * 16) as usize
+                0x1000 + t * 16
             }
         }
     }
@@ -522,6 +526,20 @@ mod test {
     use super::*;
 
     #[test]
+    fn test_set_mode() {
+        let gpu = GPU::new();
+        assert_eq!(gpu.mode(), Mode::Hblank);
+        gpu.set_mode(Mode::OAM);
+        assert_eq!(gpu.mode(), Mode::OAM);
+        gpu.set_mode(Mode::Vblank);
+        assert_eq!(gpu.mode(), Mode::Vblank);
+        gpu.set_mode(Mode::VRAM);
+        assert_eq!(gpu.mode(), Mode::VRAM);
+        gpu.set_mode(Mode::Hblank);
+        assert_eq!(gpu.mode(), Mode::Hblank);
+    }
+
+    #[test]
     fn test_read_byte() {
         let gpu = GPU::new();
 
@@ -551,14 +569,6 @@ mod test {
 
         gpu.write_byte(0xfe80, 0xdc);
         assert_eq!(gpu.oam.borrow()[0x80], 0xdc);
-    }
-
-    #[test]
-    fn test_mode() {
-        let gpu = GPU::new();
-        assert_eq!(gpu.mode(), Mode::Hblank);
-        gpu.set_mode(Mode::VRAM);
-        assert_eq!(gpu.mode(), Mode::VRAM);
     }
 
     #[test]

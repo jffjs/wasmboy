@@ -502,4 +502,37 @@ mod test {
         assert_eq!(mmu.read_byte(0x80ff), 2);
         assert_eq!(mmu.read_byte(0x8fff), 3);
     }
+
+    #[test]
+    fn test_set_iflag() {
+        let mut mmu = MMU::new(mbc1_cart(), timer(), gpu());
+
+        mmu.set_iflag(IntFlag::Vblank);
+        assert_eq!(mmu.iflag(), 0b1);
+        mmu.set_iflag(IntFlag::LCDC);
+        assert_eq!(mmu.iflag(), 0b11);
+        mmu.set_iflag(IntFlag::TimerOverflow);
+        assert_eq!(mmu.iflag(), 0b111);
+        mmu.set_iflag(IntFlag::SerialIO);
+        assert_eq!(mmu.iflag(), 0b1111);
+        mmu.set_iflag(IntFlag::JoyPad);
+        assert_eq!(mmu.iflag(), 0b11111);
+    }
+
+    #[test]
+    fn test_reset_iflag() {
+        let mut mmu = MMU::new(mbc1_cart(), timer(), gpu());
+
+        mmu.iflag = 0x1f;
+        mmu.reset_iflag(IntFlag::Vblank);
+        assert_eq!(mmu.iflag(), 0b11110);
+        mmu.reset_iflag(IntFlag::LCDC);
+        assert_eq!(mmu.iflag(), 0b11100);
+        mmu.reset_iflag(IntFlag::TimerOverflow);
+        assert_eq!(mmu.iflag(), 0b11000);
+        mmu.reset_iflag(IntFlag::SerialIO);
+        assert_eq!(mmu.iflag(), 0b10000);
+        mmu.reset_iflag(IntFlag::JoyPad);
+        assert_eq!(mmu.iflag(), 0);
+    }
 }

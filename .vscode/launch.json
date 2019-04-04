@@ -9,7 +9,7 @@
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/target/debug/wasmboy",
-      "args": []
+      "args": ["test_roms/opus5.gb"]
     },
     {
       "name": "Debug-LLDB-Lib",
