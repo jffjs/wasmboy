@@ -52,6 +52,26 @@ export class Gameboy {
     }
   }
 
+  // returns image data for a tile
+  getTileImageData(tileNumber, imageSize = 160) {
+    if (this.core) {
+      const tileData = this.core.dbg_tile_data(tileNumber);
+      const pixelSize = imageSize / 8;
+      const imageData = new Uint8ClampedArray(imageSize * imageSize * 4);
+
+      for (let i = 0; i < imageSize * imageSize; i++) {
+        const py = Math.floor(i / imageSize / pixelSize);
+        const px = Math.floor((i % imageSize) / pixelSize);
+        const color = this.colors[tileData[py * 8 + px]];
+        for (let k = 0; k < 4; k++) {
+          imageData[i * 4 + k] = color[k];
+        }
+      }
+
+      return new ImageData(imageData, imageSize, imageSize);
+    }
+  }
+
   start() {
     if (this.core && !this.interval) {
       this.core.run();

@@ -14,6 +14,10 @@
           ></HexViewer>
         </div>
         <CpuSnapshot id="cpu-snapshot" :snapshot="cpuSnapshot"></CpuSnapshot>
+        <div>
+          <input v-model.number="tileNumber" type="number" max="255" min="0">
+          <TileViewer v-if="tileImageData" :tileImage="tileImageData"></TileViewer>
+        </div>
       </div>
       <div class="controls">
         <input type="file" @change="loadRom">
@@ -32,6 +36,7 @@ import Vue from "vue";
 import range from "lodash-es/range";
 import CpuSnapshot from "./components/CpuSnapshot.vue";
 import HexViewer from "./components/HexViewer.vue";
+import TileViewer from "./components/TileViewer.vue";
 import { Gameboy } from "./gameboy";
 
 let gb;
@@ -39,7 +44,8 @@ export default {
   name: "app",
   components: {
     CpuSnapshot,
-    HexViewer
+    HexViewer,
+    TileViewer
   },
   data: function() {
     return {
@@ -48,12 +54,18 @@ export default {
       memSnapshot: [],
       cpuSnapshot: null,
       hexViewerLines: 12,
-      hexViewerBytesPerLine: 8
+      hexViewerBytesPerLine: 8,
+      tileNumber: 0
     };
   },
-  mounted: function() {
-    // gb = new Gameboy(canvas.getContext("2d"), rom);
-    // this.updateSnapshots();
+  computed: {
+    tileImageData: function() {
+      if (gb) {
+        return gb.getTileImageData(this.tileNumber);
+      } else {
+        return null;
+      }
+    }
   },
   methods: {
     loadRom: function(event) {

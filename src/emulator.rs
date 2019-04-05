@@ -140,6 +140,10 @@ impl Emulator {
         }
         snapshot.into_boxed_slice()
     }
+
+    pub fn dbg_tile_data(&self, tile_num: u8) -> Box<[u8]> {
+        self.gpu.dbg_tile(tile_num).into_boxed_slice()
+    }
 }
 
 #[derive(Debug, PartialEq, ToPrimitive)]
