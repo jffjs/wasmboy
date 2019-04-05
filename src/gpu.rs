@@ -5,7 +5,7 @@ use std::ops::{BitAnd, BitOr};
 
 type Screen = [u8];
 
-struct Tile<'a> {
+pub struct Tile<'a> {
     data: &'a [u8],
 }
 
@@ -232,6 +232,19 @@ impl GPU {
         for i in 0..0xa0 {
             self.oam.borrow_mut()[i] = oam_bytes[i];
         }
+    }
+
+    pub fn dbg_tile(&self, tile: u8) -> Vec<u8> {
+        let vram = self.vram.borrow();
+        let tile_addr = self.bg_tile_addr(tile) as usize;
+        let tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
+        let mut tile_img = Vec::new();
+        for y in 0..8 {
+            for x in 0..8 {
+                tile_img.push(tile.color_at(x, y));
+            }
+        }
+        tile_img
     }
 
     fn render_scanline(&self, screen: &mut Screen) {
