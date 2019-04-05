@@ -133,7 +133,7 @@ impl CPU {
         mmu.write_word(self.sp, self.pc);
         match iflag {
             IntFlag::Vblank => self.pc = 0x40,
-            IntFlag::LCDC => self.pc = 0x40,
+            IntFlag::LCDC => self.pc = 0x48,
             IntFlag::TimerOverflow => self.pc = 0x50,
             IntFlag::SerialIO => self.pc = 0x58,
             IntFlag::JoyPad => self.pc = 0x60,
@@ -1628,7 +1628,7 @@ impl CPU {
                     self.reset_flag(Flag::N);
                     self.reset_flag(Flag::H);
                     self.reset_flag(Flag::C);
-                    self.a |= self.a;
+                    self.a |= self.b;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -4422,6 +4422,11 @@ mod tests {
         MMU::new(cart, Rc::new(timer), Rc::new(gpu))
     }
 
+    fn cpu_exec(cpu: &mut CPU, op: u8, b1: u8, b2: u8) {
+        cpu.pc = 0;
+        cpu.exec(&mut mmu_stub(op, b1, b2)).unwrap();
+    }
+
     #[test]
     fn test_exec() {
         let mut cpu = CPU::new();
@@ -4472,6 +4477,30 @@ mod tests {
     }
 
     #[test]
+    fn test_bc() {
+        let mut cpu = CPU::new();
+        cpu.b = 0xf2;
+        cpu.c = 0xa3;
+        assert_eq!(cpu.bc(), 0xf2a3);
+    }
+
+    #[test]
+    fn test_de() {
+        let mut cpu = CPU::new();
+        cpu.d = 0xf2;
+        cpu.e = 0xa3;
+        assert_eq!(cpu.de(), 0xf2a3);
+    }
+
+    #[test]
+    fn test_hl() {
+        let mut cpu = CPU::new();
+        cpu.h = 0xf2;
+        cpu.l = 0xa3;
+        assert_eq!(cpu.hl(), 0xf2a3);
+    }
+
+    #[test]
     fn test_incb() {
         let mut cpu = CPU::new();
         cpu.b = 0xff;
@@ -4482,6 +4511,43 @@ mod tests {
         assert_eq!(cpu.test_flag(Flag::Z), 1);
         assert_eq!(cpu.test_flag(Flag::N), 0);
         assert_eq!(cpu.test_flag(Flag::H), 1);
+    }
+
+    #[test]
+    fn test_8bit_loads() {
+        let mut cpu = CPU::new();
+        let test_data = [
+            (0x06, 1),
+            (0x0e, 2),
+            (0x16, 3),
+            (0x1e, 4),
+            (0x26, 5),
+            (0x2e, 6),
+        ];
+        for (op, val) in &test_data {
+            cpu_exec(&mut cpu, *op, *val, 0);
+        }
+        assert_eq!(cpu.c, 2);
+        assert_eq!(cpu.b, 1);
+        assert_eq!(cpu.c, 2);
+        assert_eq!(cpu.d, 3);
+        assert_eq!(cpu.e, 4);
+        assert_eq!(cpu.h, 5);
+        assert_eq!(cpu.l, 6);
+
+        let test_data = [
+            (0x7f, 0),
+            (0x78, 1),
+            (0x79, 2),
+            (0x7a, 3),
+            (0x7b, 4),
+            (0x7c, 5),
+            (0x7d, 6),
+        ];
+        for (op, val) in &test_data {
+            cpu_exec(&mut cpu, *op, *val, 0);
+            assert_eq!(cpu.a, *val);
+        }
     }
 
     #[test]

@@ -19,5 +19,8 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
+canvas {
+  border: solid 1px black;
+}
 </style>

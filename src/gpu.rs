@@ -236,7 +236,7 @@ impl GPU {
 
     pub fn dbg_tile(&self, tile: u8) -> Vec<u8> {
         let vram = self.vram.borrow();
-        let tile_addr = self.bg_tile_addr(tile) as usize;
+        let tile_addr = self.bg_tile_addr(tile) as usize + 6;
         let tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
         let mut tile_img = Vec::new();
         for y in 0..8 {
@@ -252,13 +252,13 @@ impl GPU {
             self.render_bg(screen);
         }
 
-        // if self.window_on() {
-        //     self.render_window(screen);
-        // }
+        if self.window_on() {
+            self.render_window(screen);
+        }
 
-        // if self.obj_on() {
-        //     self.render_sprites(screen);
-        // }
+        if self.obj_on() {
+            self.render_sprites(screen);
+        }
     }
 
     fn render_bg(&self, screen: &mut Screen) {
@@ -499,15 +499,15 @@ impl GPU {
     }
 
     fn bgp_color(&self, color: u8) -> u8 {
-        self.bgp.get() >> ((color & 3) * 2) & 3
+        (self.bgp.get() >> ((color & 3) << 1)) & 3
     }
 
     fn obp0_color(&self, color: u8) -> u8 {
-        self.obp0.get() >> ((color & 3) * 2) & 3
+        (self.obp0.get() >> ((color & 3) << 1)) & 3
     }
 
     fn obp1_color(&self, color: u8) -> u8 {
-        self.obp1.get() >> ((color & 3) * 2) & 3
+        (self.obp1.get() >> ((color & 3) << 1)) & 3
     }
 }
 
@@ -606,5 +606,23 @@ mod test {
         for i in 0..160 {
             assert_eq!(screen[i], 3);
         }
+    }
+
+    #[test]
+    fn test_palettes() {
+        let gpu = GPU::new();
+        gpu.write_byte(0xff47, 0b11_10_01_00);
+        assert_eq!(gpu.bgp.get(), 0b11_10_01_00);
+
+        assert_eq!(gpu.bgp_color(0b00), 0);
+        assert_eq!(gpu.bgp_color(0b01), 1);
+        assert_eq!(gpu.bgp_color(0b10), 2);
+        assert_eq!(gpu.bgp_color(0b11), 3);
+
+        gpu.write_byte(0xff47, 0b01_11_00_10);
+        assert_eq!(gpu.bgp_color(0b00), 2);
+        assert_eq!(gpu.bgp_color(0b01), 0);
+        assert_eq!(gpu.bgp_color(0b10), 3);
+        assert_eq!(gpu.bgp_color(0b11), 1);
     }
 }

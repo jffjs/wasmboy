@@ -36,7 +36,8 @@ export class Gameboy {
 
   step() {
     if (this.core) {
-      this.core.dbg_step(this.screen);
+      // this.core.dbg_step(this.screen);
+      this.renderFrame();
     }
   }
 
@@ -76,10 +77,6 @@ export class Gameboy {
     if (this.core && !this.interval) {
       this.core.run();
       this.interval = setInterval(() => this.renderFrame(), 1);
-      // for (let i = 0; i < 1000; i++) {
-      //   console.log(i);
-      //   this.renderFrame();
-      // }
       this.running = true;
     }
   }
