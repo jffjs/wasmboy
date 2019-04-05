@@ -239,40 +239,41 @@ impl GPU {
             self.render_bg(screen);
         }
 
-        if self.window_on() {
-            self.render_window(screen);
-        }
+        // if self.window_on() {
+        //     self.render_window(screen);
+        // }
 
-        if self.obj_on() {
-            self.render_sprites(screen);
-        }
+        // if self.obj_on() {
+        //     self.render_sprites(screen);
+        // }
     }
 
     fn render_bg(&self, screen: &mut Screen) {
-        let tilemap_offset = self
-            .bgmap_offset()
-            .wrapping_add((self.bg_line() >> 3) as usize);
-        let mut line_offset = (self.scx() >> 3) as usize;
-        let mut pixel_x = self.scx() & 7;
-        let pixel_y = self.bg_line() & 7;
+        let tile_y = (self.bg_line() as usize) >> 3;
+        let mut tile_x = (self.scx() as usize) >> 3;
+        let mut tilemap_addr = self.bgmap_offset().wrapping_add((tile_y << 5) + tile_x);
         let vram = self.vram.borrow();
-        let mut tile_num = vram[tilemap_offset + line_offset];
+        let mut tile_num = vram[tilemap_addr];
         let mut tile_addr = self.bg_tile_addr(tile_num) as usize;
         let mut tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
 
-        for x in 0..160 {
+        let mut pixel_x = self.scx() & 7;
+        let pixel_y = self.bg_line() & 7;
+
+        for screen_x in 0..160 {
             // TODO: if this is too slow, we can calculate when vram is updated
             // and keep tile data in separate data structure
             let t_color = tile.color_at(pixel_x, pixel_y);
             let p_color = self.bgp_color(t_color);
             // push to screen array
-            screen[self.ly() as usize * 144 + x] = p_color;
+            screen[self.ly() as usize * 144 + screen_x] = p_color;
             pixel_x += 1;
             // move to next tile
             if pixel_x > 7 {
                 pixel_x = 0;
-                line_offset = (line_offset + 1) & 31;
-                tile_num = vram[tilemap_offset + line_offset];
+                tile_x = (tile_x + 1) & 31;
+                tilemap_addr = self.bgmap_offset().wrapping_add((tile_y << 5) + tile_x);
+                tile_num = vram[tilemap_addr];
                 tile_addr = self.bg_tile_addr(tile_num);
                 tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
             }
@@ -470,12 +471,12 @@ impl GPU {
     fn bg_tile_addr(&self, tile: u8) -> usize {
         let t = tile as usize;
         if (self.lcdc.get() & 0x10) == 0x10 {
-            t * 16
+            t << 4
         } else {
             if (t & 0x80) == 0x80 {
-                0x1000 - (!t + 1) * 16
+                0x1000 - ((!t + 1) << 4)
             } else {
-                0x1000 + t * 16
+                0x1000 + (t << 4)
             }
         }
     }
