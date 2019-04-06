@@ -431,8 +431,9 @@ impl CPU {
                 }
                 Opcode::JRNZn => {
                     self.m = 2;
+                    let offset = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
                     if self.test_flag(Flag::Z) == 0 {
-                        let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
                             self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
                         } else {
@@ -508,8 +509,9 @@ impl CPU {
                 }
                 Opcode::JRZn => {
                     self.m = 2;
+                    let offset = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
                     if self.test_flag(Flag::Z) == 1 {
-                        let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
                             self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
                         } else {
@@ -582,8 +584,9 @@ impl CPU {
                 }
                 Opcode::JRNCn => {
                     self.m = 2;
+                    let offset = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
                     if self.test_flag(Flag::C) == 0 {
-                        let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
                             self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
                         } else {
@@ -651,8 +654,9 @@ impl CPU {
                 }
                 Opcode::JRCn => {
                     self.m = 2;
+                    let offset = mmu.read_byte(self.pc);
+                    self.pc = self.pc.wrapping_add(1);
                     if self.test_flag(Flag::C) == 1 {
-                        let offset = mmu.read_byte(self.pc);
                         if (offset & 0x80) == 0x80 {
                             self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
                         } else {
@@ -1932,6 +1936,7 @@ impl CPU {
                     self.m = 6;
                 }
                 Opcode::ADCAn => {
+                    // TODO: check adc logic
                     let carry = self.test_flag(Flag::C);
                     let mut value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
@@ -4380,11 +4385,11 @@ fn test_bit(b: u8, n: u8) -> u8 {
 }
 
 fn check_half_carry_8(a: u8, b: u8) -> bool {
-    ((a & 0xf) + (b & 0xf)) & 0x10 == 0x10
+    ((a.wrapping_add(b)) ^ b ^ a) & 0x10 == 0x10
 }
 
 fn check_half_carry_16(a: u16, b: u16) -> bool {
-    (a & 0xfff) + (b & 0xfff) & 0x1000 == 0x1000
+    ((a.wrapping_add(b)) ^ b ^ a) & 0x1000 == 0x1000
 }
 
 fn check_carry_8(a: u8, b: u8) -> bool {
@@ -4396,7 +4401,7 @@ fn check_carry_16(a: u16, b: u16) -> bool {
 }
 
 fn check_half_borrow_8(a: u8, b: u8) -> bool {
-    (a & 0xf) < (b & 0xf)
+    ((a.wrapping_sub(b)) ^ b ^ a) & 0x10 == 0x10
 }
 
 fn check_borrow_8(a: u8, b: u8) -> bool {
