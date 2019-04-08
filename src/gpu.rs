@@ -257,7 +257,8 @@ impl GPU {
         }
 
         if self.obj_on() {
-            self.render_sprites(screen);
+            // TODO: fix multiply overflow
+            // self.render_sprites(screen);
         }
     }
 

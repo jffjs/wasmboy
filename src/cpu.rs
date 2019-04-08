@@ -316,7 +316,7 @@ impl CPU {
                 }
                 Opcode::INCDE => {
                     self.e = self.e.wrapping_add(1);
-                    if self.e != 0 {
+                    if self.e == 0 {
                         self.d = self.d.wrapping_add(1);
                     }
                     self.m = 2; //jsGB has 1?
@@ -393,9 +393,9 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::DECDE => {
-                    self.d = self.d.wrapping_sub(1);
-                    if self.d == 0xff {
-                        self.e = self.e.wrapping_sub(1);
+                    self.e = self.e.wrapping_sub(1);
+                    if self.e == 0xff {
+                        self.d = self.d.wrapping_sub(1);
                     }
                     self.m = 2; //jsGB has 1?
                 }
@@ -404,7 +404,7 @@ impl CPU {
                     if check_half_carry_8(self.d, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.d = self.d.wrapping_add(1);
+                    self.e = self.e.wrapping_add(1);
                     if self.d == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -455,22 +455,22 @@ impl CPU {
                     }
                 }
                 Opcode::LDHLnn => {
-                    self.h = mmu.read_byte(self.pc);
-                    self.l = mmu.read_byte(self.pc.wrapping_add(1));
+                    self.l = mmu.read_byte(self.pc);
+                    self.h = mmu.read_byte(self.pc.wrapping_add(1));
                     self.pc = self.pc.wrapping_add(2);
                     self.m = 3;
                 }
                 Opcode::LDI_HL_A => {
                     mmu.write_byte(self.hl(), self.a);
                     self.l = self.l.wrapping_add(1);
-                    if self.l != 0 {
+                    if self.l == 0 {
                         self.h = self.h.wrapping_add(1);
                     }
                     self.m = 2;
                 }
                 Opcode::INCHL => {
                     self.l = self.l.wrapping_add(1);
-                    if self.l != 0 {
+                    if self.l == 0 {
                         self.h = self.h.wrapping_add(1);
                     }
                     self.m = 2;
@@ -549,7 +549,7 @@ impl CPU {
                 Opcode::LDIA_HL_ => {
                     self.a = mmu.read_byte(self.hl());
                     self.l = self.l.wrapping_add(1);
-                    if self.l != 0 {
+                    if self.l == 0 {
                         self.h = self.h.wrapping_add(1);
                     }
                     self.m = 2;
@@ -708,7 +708,7 @@ impl CPU {
                     if check_half_carry_8(self.a, 1) {
                         self.set_flag(Flag::H);
                     }
-                    self.a = self.l.wrapping_add(1);
+                    self.a = self.a.wrapping_add(1);
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
                     }
@@ -1949,7 +1949,6 @@ impl CPU {
                     self.m = 6;
                 }
                 Opcode::ADCAn => {
-                    // TODO: check adc logic
                     let carry = self.test_flag(Flag::C);
                     let mut value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
@@ -2223,7 +2222,7 @@ impl CPU {
                         spn = self.sp.wrapping_add(offset as u16);
                     }
                     self.h = (spn >> 8) as u8;
-                    self.l = (spn & 0xf) as u8;
+                    self.l = (spn & 0xff) as u8;
                     self.m = 3;
                 }
                 Opcode::LDSPHL => {
@@ -3081,7 +3080,7 @@ impl CPU {
                     if value == 0 {
                         self.set_flag(Flag::Z);
                     }
-                    self.l = value;
+                    mmu.write_byte(self.hl(), value);
                     self.m = 4;
                 }
                 ExtOpcode::SRAA => {
