@@ -86,12 +86,12 @@ impl MMU {
             0x0 | 0x1 | 0x2 | 0x3 => self.rom()[addr as usize],
             // ROM bank 1
             0x4 | 0x5 | 0x6 | 0x7 => {
-                if self.rom_bank() > 0 {
-                    let offset = self.rom_bank() * 0x4000;
-                    self.rom()[((addr & 0x3fff) + offset) as usize]
-                } else {
-                    self.rom()[(addr & 0x3fff) as usize]
-                }
+                // if self.rom_bank() > 0 {
+                let offset = self.rom_bank() as usize * 0x4000;
+                //     self.rom()[((addr & 0x3fff) + offset) as usize]
+                // } else {
+                self.rom()[offset + (addr & 0x3fff) as usize]
+                // }
             }
             // Graphics: VRAM
             0x8 | 0x9 => self.gpu.read_byte(addr),
@@ -246,26 +246,27 @@ impl MMU {
             0x8 | 0x9 => self.gpu.write_byte(addr, value),
             // External RAM
             0xa | 0xb => {
-                if self.cart.ram_enabled {
-                    let offset = match self.cart.mode {
-                        CartMode::RamBank => self.ram_bank() * 0x2000,
-                        CartMode::Default => 0,
-                    };
-                    self.e_ram[((addr & 0x1fff) + offset) as usize] = value;
-                    // match self.cart.cart_type {
-                    //     CartType::MBC1 => {
-                    //         let offset = match self.cart.mode {
-                    //             CartMode::RamBank => self.ram_bank() * 0x2000,
-                    //             CartMode::Default => 0,
-                    //         };
-                    //         self.e_ram[((addr & 0x1fff) + offset) as usize] = value;
-                    //     }
-                    //     CartType::MBC2 => {
-                    //         self.e_ram[(addr & 0x1ff) as usize] = value & 0xf;
-                    //     }
-                    //     _ => (),
-                    // }
-                }
+                let offset = 0;
+                // if self.cart.ram_enabled {
+                //     let offset = match self.cart.mode {
+                //         CartMode::RamBank => self.ram_bank() * 0x2000,
+                //         CartMode::Default => 0,
+                //     };
+                self.e_ram[((addr & 0x1fff) + offset) as usize] = value;
+                // match self.cart.cart_type {
+                //     CartType::MBC1 => {
+                //         let offset = match self.cart.mode {
+                //             CartMode::RamBank => self.ram_bank() * 0x2000,
+                //             CartMode::Default => 0,
+                //         };
+                //         self.e_ram[((addr & 0x1fff) + offset) as usize] = value;
+                //     }
+                //     CartType::MBC2 => {
+                //         self.e_ram[(addr & 0x1ff) as usize] = value & 0xf;
+                //     }
+                //     _ => (),
+                // }
+                // }
             }
             // Working RAM and echo
             0xc | 0xd | 0xe => {

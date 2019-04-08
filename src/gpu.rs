@@ -200,7 +200,9 @@ impl GPU {
 
     pub fn write_byte(&self, addr: u16, value: u8) {
         match (addr & 0xf000) >> 12 {
-            0x8 | 0x9 => self.vram.borrow_mut()[(addr & 0x1fff) as usize] = value,
+            0x8 | 0x9 => {
+                self.vram.borrow_mut()[(addr & 0x1fff) as usize] = value;
+            }
             0xf => match (addr & 0xf00) >> 8 {
                 0xe => {
                     if addr < 0xfea0 {
