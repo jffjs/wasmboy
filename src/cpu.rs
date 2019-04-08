@@ -128,7 +128,19 @@ impl CPU {
         }
     }
 
+    fn restore(&mut self, copy: CPU) {
+        self.a = copy.a;
+        self.f = copy.f;
+        self.b = copy.b;
+        self.c = copy.c;
+        self.d = copy.d;
+        self.e = copy.e;
+        self.h = copy.h;
+        self.l = copy.l;
+    }
+
     pub fn handle_interrupt(&mut self, iflag: IntFlag, mmu: &mut MMU) {
+        mmu.rsv(self.clone());
         self.sp = self.sp.wrapping_sub(2);
         mmu.write_word(self.sp, self.pc);
         match iflag {
@@ -181,7 +193,7 @@ impl CPU {
                 }
                 Opcode::DECB => {
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.b, 1) {
+                    if check_half_borrow_8(self.b, 1) {
                         self.set_flag(Flag::H);
                     }
                     self.b = self.b.wrapping_sub(1);
@@ -256,7 +268,7 @@ impl CPU {
                 }
                 Opcode::DECC => {
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.c, 1) {
+                    if check_half_borrow_8(self.c, 1) {
                         self.set_flag(Flag::H);
                     }
                     self.c = self.c.wrapping_sub(1);
@@ -322,7 +334,7 @@ impl CPU {
                 }
                 Opcode::DECD => {
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.d, 1) {
+                    if check_half_borrow_8(self.d, 1) {
                         self.set_flag(Flag::H);
                     }
                     self.d = self.d.wrapping_sub(1);
@@ -400,7 +412,7 @@ impl CPU {
                 }
                 Opcode::DECE => {
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.e, 1) {
+                    if check_half_borrow_8(self.e, 1) {
                         self.set_flag(Flag::H);
                     }
                     self.e = self.e.wrapping_sub(1);
@@ -476,7 +488,7 @@ impl CPU {
                 }
                 Opcode::DECH => {
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.h, 1) {
+                    if check_half_borrow_8(self.h, 1) {
                         self.set_flag(Flag::H);
                     }
                     self.h = self.h.wrapping_sub(1);
@@ -562,7 +574,7 @@ impl CPU {
                 }
                 Opcode::DECL => {
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.l, 1) {
+                    if check_half_borrow_8(self.l, 1) {
                         self.set_flag(Flag::H);
                     }
                     self.l = self.l.wrapping_sub(1);
@@ -630,7 +642,7 @@ impl CPU {
                     self.set_flag(Flag::N);
                     let addr = self.hl();
                     let mut val = mmu.read_byte(addr);
-                    if !check_half_borrow_8(val, 1) {
+                    if check_half_borrow_8(val, 1) {
                         self.set_flag(Flag::H);
                     }
                     val = val.wrapping_sub(1);
@@ -704,7 +716,7 @@ impl CPU {
                 }
                 Opcode::DECA => {
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, 1) {
+                    if check_half_borrow_8(self.a, 1) {
                         self.set_flag(Flag::H);
                     }
                     self.a = self.a.wrapping_sub(1);
@@ -1222,10 +1234,10 @@ impl CPU {
                 Opcode::SUBAB => {
                     let value = self.b;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1237,10 +1249,10 @@ impl CPU {
                 Opcode::SUBAC => {
                     let value = self.c;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1252,10 +1264,10 @@ impl CPU {
                 Opcode::SUBAD => {
                     let value = self.d;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1267,10 +1279,10 @@ impl CPU {
                 Opcode::SUBAE => {
                     let value = self.e;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1282,10 +1294,10 @@ impl CPU {
                 Opcode::SUBAH => {
                     let value = self.h;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1297,10 +1309,10 @@ impl CPU {
                 Opcode::SUBAL => {
                     let value = self.l;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1312,10 +1324,10 @@ impl CPU {
                 Opcode::SUBA_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1327,10 +1339,10 @@ impl CPU {
                 Opcode::SUBAA => {
                     let value = self.a;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1341,12 +1353,12 @@ impl CPU {
                 }
                 Opcode::SBCAB => {
                     let carry = self.test_flag(Flag::C);
-                    let value = self.b.wrapping_add(carry);
+                    let value = self.b.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1357,12 +1369,12 @@ impl CPU {
                 }
                 Opcode::SBCAC => {
                     let carry = self.test_flag(Flag::C);
-                    let value = self.c.wrapping_add(carry);
+                    let value = self.c.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1373,12 +1385,12 @@ impl CPU {
                 }
                 Opcode::SBCAD => {
                     let carry = self.test_flag(Flag::C);
-                    let value = self.d.wrapping_add(carry);
+                    let value = self.d.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1389,12 +1401,12 @@ impl CPU {
                 }
                 Opcode::SBCAE => {
                     let carry = self.test_flag(Flag::C);
-                    let value = self.e.wrapping_add(carry);
+                    let value = self.e.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1405,12 +1417,12 @@ impl CPU {
                 }
                 Opcode::SBCAH => {
                     let carry = self.test_flag(Flag::C);
-                    let value = self.h.wrapping_add(carry);
+                    let value = self.h.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1421,12 +1433,12 @@ impl CPU {
                 }
                 Opcode::SBCAL => {
                     let carry = self.test_flag(Flag::C);
-                    let value = self.l.wrapping_add(carry);
+                    let value = self.l.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1438,12 +1450,12 @@ impl CPU {
                 Opcode::SBCA_HL_ => {
                     let carry = self.test_flag(Flag::C);
                     let mut value = mmu.read_byte(self.hl());
-                    value = value.wrapping_add(carry);
+                    value = value.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1454,12 +1466,12 @@ impl CPU {
                 }
                 Opcode::SBCAA => {
                     let carry = self.test_flag(Flag::C);
-                    let value = self.a.wrapping_add(carry);
+                    let value = self.a.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -1711,10 +1723,10 @@ impl CPU {
                 Opcode::CPB => {
                     let value = self.b;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -1726,10 +1738,10 @@ impl CPU {
                 Opcode::CPC => {
                     let value = self.c;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -1741,10 +1753,10 @@ impl CPU {
                 Opcode::CPD => {
                     let value = self.d;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -1756,10 +1768,10 @@ impl CPU {
                 Opcode::CPE => {
                     let value = self.e;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -1771,10 +1783,10 @@ impl CPU {
                 Opcode::CPH => {
                     let value = self.h;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -1786,10 +1798,10 @@ impl CPU {
                 Opcode::CP_L => {
                     let value = self.l;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -1801,10 +1813,10 @@ impl CPU {
                 Opcode::CP_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -1816,10 +1828,10 @@ impl CPU {
                 Opcode::CPA => {
                     let value = self.a;
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -1891,6 +1903,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST0 => {
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0;
@@ -1955,6 +1968,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST8 => {
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x8;
@@ -2006,10 +2020,10 @@ impl CPU {
                     let value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -2019,6 +2033,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST10 => {
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x10;
@@ -2036,6 +2051,7 @@ impl CPU {
                     self.pc = mmu.read_word(self.sp);
                     self.sp = self.sp.wrapping_add(2);
                     self.ime = true;
+                    self.restore(mmu.rrs());
                     self.m = 4;
                 }
                 Opcode::JPCnn => {
@@ -2062,12 +2078,12 @@ impl CPU {
                     let carry = self.test_flag(Flag::C);
                     let mut value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    value = value.wrapping_add(carry);
+                    value = value.wrapping_sub(carry);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     self.a = self.a.wrapping_sub(value);
@@ -2077,6 +2093,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST18 => {
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x18;
@@ -2115,6 +2132,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST20 => {
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x20;
@@ -2149,6 +2167,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST28 => {
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x28;
@@ -2186,6 +2205,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST30 => {
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x30;
@@ -2224,10 +2244,10 @@ impl CPU {
                     let value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
                     self.set_flag(Flag::N);
-                    if !check_half_borrow_8(self.a, value) {
+                    if check_half_borrow_8(self.a, value) {
                         self.set_flag(Flag::H);
                     }
-                    if !check_borrow_8(self.a, value) {
+                    if check_borrow_8(self.a, value) {
                         self.set_flag(Flag::C);
                     }
                     let result = self.a.wrapping_sub(value);
@@ -2237,6 +2257,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST38 => {
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x38;

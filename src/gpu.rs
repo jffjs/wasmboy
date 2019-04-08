@@ -236,7 +236,7 @@ impl GPU {
 
     pub fn dbg_tile(&self, tile: u8) -> Vec<u8> {
         let vram = self.vram.borrow();
-        let tile_addr = self.bg_tile_addr(tile) as usize + 6;
+        let tile_addr = self.bg_tile_addr(tile) as usize;
         let tile = Tile::new(&vram[tile_addr..tile_addr + 16]);
         let mut tile_img = Vec::new();
         for y in 0..8 {

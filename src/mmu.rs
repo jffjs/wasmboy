@@ -1,4 +1,5 @@
 use cartridge::*;
+use cpu::CPU;
 use emulator::IntFlag;
 use gpu::GPU;
 use std::rc::Rc;
@@ -15,6 +16,7 @@ pub struct MMU {
     iflag: u8, // if - interrupt flags
     gpu: Rc<GPU>,
     timer: Rc<Timer>,
+    rsv: CPU,
 }
 
 impl MMU {
@@ -28,6 +30,7 @@ impl MMU {
             iflag: 0,
             gpu,
             timer,
+            rsv: CPU::new(),
         }
     }
 
@@ -67,6 +70,14 @@ impl MMU {
         self.write_byte(0xff47, 0xfc);
         self.write_byte(0xff48, 0xff);
         self.write_byte(0xff49, 0xff);
+    }
+
+    pub fn rsv(&mut self, cpu: CPU) {
+        self.rsv = cpu;
+    }
+
+    pub fn rrs(&self) -> CPU {
+        self.rsv.clone()
     }
 
     pub fn read_byte(&self, addr: u16) -> u8 {
