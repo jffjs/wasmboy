@@ -38,6 +38,17 @@ enum Flag {
     C,
 }
 
+#[derive(Clone, Copy)]
+enum Reg {
+    A,
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+}
+
 impl CPU {
     pub fn new() -> CPU {
         CPU {
@@ -139,6 +150,154 @@ impl CPU {
         self.l = copy.l;
     }
 
+    fn get_reg(&self, reg: Reg) -> u8 {
+        match reg {
+            Reg::A => self.a,
+            Reg::B => self.b,
+            Reg::C => self.c,
+            Reg::D => self.d,
+            Reg::E => self.e,
+            Reg::H => self.h,
+            Reg::L => self.l,
+        }
+    }
+
+    fn set_reg(&mut self, reg: Reg, value: u8) {
+        match reg {
+            Reg::A => self.a = value,
+            Reg::B => self.b = value,
+            Reg::C => self.c = value,
+            Reg::D => self.d = value,
+            Reg::E => self.e = value,
+            Reg::H => self.h = value,
+            Reg::L => self.l = value,
+        }
+    }
+
+    fn add(&mut self, value: u8) {
+        self.f = 0;
+        if check_half_carry_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_carry_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        self.a = self.a.wrapping_add(value);
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn adc(&mut self, value: u8) {
+        self.f = 0;
+        let carry = self.test_flag(Flag::C);
+        let value = value.wrapping_add(carry);
+        self.reset_flag(Flag::N);
+        if check_half_carry_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_carry_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        self.a = self.a.wrapping_add(value);
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn sub(&mut self, value: u8) {
+        self.f = 0;
+        self.set_flag(Flag::N);
+        if check_half_borrow_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_borrow_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        self.a = self.a.wrapping_sub(value);
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn sbc(&mut self, value: u8) {
+        self.f = 0;
+        let carry = self.test_flag(Flag::C);
+        let value = value.wrapping_sub(carry);
+        self.set_flag(Flag::N);
+        if check_half_borrow_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_borrow_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        self.a = self.a.wrapping_sub(value);
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn and(&mut self, value: u8) {
+        self.f = 0;
+        self.set_flag(Flag::H);
+        self.a &= value;
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn xor(&mut self, value: u8) {
+        self.f = 0;
+        self.a ^= value;
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn or(&mut self, value: u8) {
+        self.f = 0;
+        self.a |= value;
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn cmp(&mut self, value: u8) {
+        self.f = 0;
+        self.set_flag(Flag::N);
+        if check_half_borrow_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_borrow_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        if self.a == value {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn inc(&mut self, reg: Reg) {
+        self.f = 0;
+        let mut value = self.get_reg(reg);
+        if check_half_carry_8(value, 1) {
+            self.set_flag(Flag::H);
+        }
+        value = value.wrapping_add(1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.set_reg(reg, value);
+        self.m = 1;
+    }
+
     pub fn handle_interrupt(&mut self, iflag: IntFlag, mmu: &mut MMU) {
         mmu.rsv(self.clone());
         self.sp = self.sp.wrapping_sub(2);
@@ -181,18 +340,7 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::INCB => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.b, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.b = self.b.wrapping_add(1);
-                    if self.b == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.inc(Reg::B);
                 }
                 Opcode::DECB => {
                     self.set_flag(Flag::N);
@@ -1038,918 +1186,268 @@ impl CPU {
                     self.m = 1;
                 }
                 Opcode::ADDAB => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, self.b) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, self.b) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(self.b);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.b;
+                    self.add(v);
                 }
                 Opcode::ADDAC => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, self.c) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, self.c) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(self.c);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.c;
+                    self.add(v);
                 }
                 Opcode::ADDAD => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, self.d) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, self.d) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(self.d);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.d;
+                    self.add(v);
                 }
                 Opcode::ADDAE => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, self.e) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, self.e) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(self.e);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.e;
+                    self.add(v);
                 }
                 Opcode::ADDAH => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, self.h) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, self.h) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(self.h);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.h;
+                    self.add(v);
                 }
                 Opcode::ADDAL => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, self.l) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, self.l) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(self.l);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.l;
+                    self.add(v);
                 }
                 Opcode::ADDA_HL_ => {
-                    let value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    let v = mmu.read_byte(self.hl());
+                    self.add(v);
+                    self.m += 1;
                 }
                 Opcode::ADDAA => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, self.a) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, self.a) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(self.a);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.a;
+                    self.add(v);
                 }
                 Opcode::ADCAB => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.b.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.b;
+                    self.adc(v);
                 }
                 Opcode::ADCAC => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.c.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.c;
+                    self.adc(v);
                 }
                 Opcode::ADCAD => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.d.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.d;
+                    self.adc(v);
                 }
                 Opcode::ADCAE => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.e.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.e;
+                    self.adc(v);
                 }
                 Opcode::ADCAH => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.h.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.h;
+                    self.adc(v);
                 }
                 Opcode::ADCAL => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.l.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.l;
+                    self.adc(v);
                 }
                 Opcode::ADCA_HL_ => {
-                    let carry = self.test_flag(Flag::C);
-                    let mut value = mmu.read_byte(self.hl());
-                    value = value.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    let v = mmu.read_byte(self.hl());
+                    self.adc(v);
+                    self.m += 1;
                 }
                 Opcode::ADCAA => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.a.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.a;
+                    self.adc(v);
                 }
                 Opcode::SUBAB => {
-                    let value = self.b;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.b;
+                    self.sub(v);
                 }
                 Opcode::SUBAC => {
-                    let value = self.c;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.c;
+                    self.sub(v);
                 }
                 Opcode::SUBAD => {
-                    let value = self.d;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.d;
+                    self.sub(v);
                 }
                 Opcode::SUBAE => {
-                    let value = self.e;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.e;
+                    self.sub(v);
                 }
                 Opcode::SUBAH => {
-                    let value = self.h;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.h;
+                    self.sub(v);
                 }
                 Opcode::SUBAL => {
-                    let value = self.l;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.l;
+                    self.sub(v);
                 }
                 Opcode::SUBA_HL_ => {
-                    let value = mmu.read_byte(self.hl());
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    let v = mmu.read_byte(self.hl());
+                    self.sub(v);
+                    self.m += 1;
                 }
                 Opcode::SUBAA => {
-                    let value = self.a;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.a;
+                    self.sub(v);
                 }
                 Opcode::SBCAB => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.b.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.b;
+                    self.sbc(v);
                 }
                 Opcode::SBCAC => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.c.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.c;
+                    self.sbc(v);
                 }
                 Opcode::SBCAD => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.d.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.d;
+                    self.sbc(v);
                 }
                 Opcode::SBCAE => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.e.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.e;
+                    self.sbc(v);
                 }
                 Opcode::SBCAH => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.h.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.h;
+                    self.sbc(v);
                 }
                 Opcode::SBCAL => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.l.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.l;
+                    self.sbc(v);
                 }
                 Opcode::SBCA_HL_ => {
-                    let carry = self.test_flag(Flag::C);
-                    let mut value = mmu.read_byte(self.hl());
-                    value = value.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    let v = mmu.read_byte(self.hl());
+                    self.sbc(v);
+                    self.m += 1;
                 }
                 Opcode::SBCAA => {
-                    let carry = self.test_flag(Flag::C);
-                    let value = self.a.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.a;
+                    self.sbc(v);
                 }
                 Opcode::ANDB => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
-                    self.a &= self.b;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.b;
+                    self.and(v);
                 }
                 Opcode::ANDC => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
-                    self.a &= self.c;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.c;
+                    self.and(v);
                 }
                 Opcode::ANDD => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
-                    self.a &= self.d;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.d;
+                    self.and(v);
                 }
                 Opcode::ANDE => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
-                    self.a &= self.e;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.e;
+                    self.and(v);
                 }
                 Opcode::ANDH => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
-                    self.a &= self.h;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.h;
+                    self.and(v);
                 }
                 Opcode::ANDL => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
-                    self.a &= self.l;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.l;
+                    self.and(v);
                 }
                 Opcode::AND_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
-                    self.a &= mmu.read_byte(self.hl());
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 2;
+                    let v = mmu.read_byte(self.hl());
+                    self.and(v);
+                    self.m += 1;
                 }
                 Opcode::ANDA => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
-                    self.a &= self.a;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.a;
+                    self.and(v);
                 }
                 Opcode::XORB => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a ^= self.b;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.b;
+                    self.xor(v);
                 }
                 Opcode::XORC => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a ^= self.c;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.c;
+                    self.xor(v);
                 }
                 Opcode::XORD => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a ^= self.d;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.d;
+                    self.xor(v);
                 }
                 Opcode::XORE => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a ^= self.e;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.e;
+                    self.xor(v);
                 }
                 Opcode::XORH => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a ^= self.h;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.h;
+                    self.xor(v);
                 }
                 Opcode::XORL => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a ^= self.l;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.l;
+                    self.xor(v);
                 }
                 Opcode::XOR_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a ^= mmu.read_byte(self.hl());
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    let v = mmu.read_byte(self.hl());
+                    self.xor(v);
+                    self.m += 1;
                 }
                 Opcode::XORA => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a ^= self.a;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.a;
+                    self.xor(v);
                 }
                 Opcode::ORB => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a |= self.b;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.b;
+                    self.or(v);
                 }
                 Opcode::ORC => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a |= self.c;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.c;
+                    self.or(v);
                 }
                 Opcode::ORD => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a |= self.d;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.d;
+                    self.or(v);
                 }
                 Opcode::ORE => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a |= self.e;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.e;
+                    self.or(v);
                 }
                 Opcode::ORH => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a |= self.h;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.h;
+                    self.or(v);
                 }
                 Opcode::ORL => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a |= self.l;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.l;
+                    self.or(v);
                 }
                 Opcode::OR_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a |= mmu.read_byte(self.hl());
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 2;
+                    let v = mmu.read_byte(self.hl());
+                    self.or(v);
+                    self.m += 1;
                 }
                 Opcode::ORA => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    self.a |= self.a;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    let v = self.a;
+                    self.or(v);
                 }
                 Opcode::CPB => {
-                    let value = self.b;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    let result = self.a.wrapping_sub(value);
-                    if result == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.b;
+                    self.cmp(v);
                 }
                 Opcode::CPC => {
-                    let value = self.c;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    let result = self.a.wrapping_sub(value);
-                    if result == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.c;
+                    self.cmp(v);
                 }
                 Opcode::CPD => {
-                    let value = self.d;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    let result = self.a.wrapping_sub(value);
-                    if result == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.d;
+                    self.cmp(v);
                 }
                 Opcode::CPE => {
-                    let value = self.e;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    let result = self.a.wrapping_sub(value);
-                    if result == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.e;
+                    self.cmp(v);
                 }
                 Opcode::CPH => {
-                    let value = self.h;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    let result = self.a.wrapping_sub(value);
-                    if result == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.h;
+                    self.cmp(v);
                 }
                 Opcode::CP_L => {
-                    let value = self.l;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    let result = self.a.wrapping_sub(value);
-                    if result == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.l;
+                    self.cmp(v);
                 }
                 Opcode::CP_HL_ => {
-                    let value = mmu.read_byte(self.hl());
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    let result = self.a.wrapping_sub(value);
-                    if result == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    let v = mmu.read_byte(self.hl());
+                    self.cmp(v);
+                    self.m += 1;
                 }
                 Opcode::CPA => {
-                    let value = self.a;
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    let result = self.a.wrapping_sub(value);
-                    if result == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 1;
+                    let v = self.a;
+                    self.cmp(v);
                 }
                 Opcode::RETNZ => {
                     self.m = 2; //jsGB has 3 (1 + 2 if true)?
@@ -2000,22 +1498,11 @@ impl CPU {
                 Opcode::ADDAn => {
                     let value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.add(value);
+                    self.m += 1;
                 }
                 Opcode::RST0 => {
                     mmu.rsv(self.clone());
-                    let offset = 0;
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0;
@@ -2061,22 +1548,10 @@ impl CPU {
                     self.m = 6;
                 }
                 Opcode::ADCAn => {
-                    let carry = self.test_flag(Flag::C);
-                    let mut value = mmu.read_byte(self.pc);
+                    let value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    value = value.wrapping_add(carry);
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_carry_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_add(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.adc(value);
+                    self.m += 1;
                 }
                 Opcode::RST8 => {
                     mmu.rsv(self.clone());
@@ -2130,18 +1605,8 @@ impl CPU {
                 Opcode::SUBAn => {
                     let value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.sub(value);
+                    self.m += 1;
                 }
                 Opcode::RST10 => {
                     mmu.rsv(self.clone());
@@ -2186,22 +1651,10 @@ impl CPU {
                     }
                 }
                 Opcode::SBCAn => {
-                    let carry = self.test_flag(Flag::C);
                     let mut value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    value = value.wrapping_sub(carry);
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, value) {
-                        self.set_flag(Flag::H);
-                    }
-                    if check_borrow_8(self.a, value) {
-                        self.set_flag(Flag::C);
-                    }
-                    self.a = self.a.wrapping_sub(value);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.sbc(value);
+                    self.m += 1;
                 }
                 Opcode::RST18 => {
                     mmu.rsv(self.clone());
@@ -2237,18 +1690,10 @@ impl CPU {
                     self.m = 4;
                 }
                 Opcode::ANDn => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::C);
-                    self.set_flag(Flag::H);
                     let n = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    self.a &= n;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.and(n);
+                    self.m += 1;
                 }
                 Opcode::RST20 => {
                     mmu.rsv(self.clone());
@@ -2280,18 +1725,10 @@ impl CPU {
                     self.m = 4;
                 }
                 Opcode::XORn => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
                     let n = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    self.a ^= n;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.xor(n);
+                    self.m += 1;
                 }
                 Opcode::RST28 => {
                     mmu.rsv(self.clone());
@@ -2326,18 +1763,10 @@ impl CPU {
                     self.m = 4;
                 }
                 Opcode::ORn => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
                     let n = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    self.a |= n;
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.or(n);
+                    self.m += 1;
                 }
                 Opcode::RST30 => {
                     mmu.rsv(self.clone());
