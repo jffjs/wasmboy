@@ -188,7 +188,10 @@ impl CPU {
                     self.b = self.b.wrapping_add(1);
                     if self.b == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::DECB => {
@@ -199,7 +202,10 @@ impl CPU {
                     self.b = self.b.wrapping_sub(1);
                     if self.b == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::LDBn => {
@@ -263,7 +269,10 @@ impl CPU {
                     self.c = self.c.wrapping_add(1);
                     if self.c == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::DECC => {
@@ -274,7 +283,10 @@ impl CPU {
                     self.c = self.c.wrapping_sub(1);
                     if self.c == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::LDCn => {
@@ -329,7 +341,10 @@ impl CPU {
                     self.d = self.d.wrapping_add(1);
                     if self.d == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::DECD => {
@@ -340,7 +355,10 @@ impl CPU {
                     self.d = self.d.wrapping_sub(1);
                     if self.d == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::LDDn => {
@@ -401,13 +419,16 @@ impl CPU {
                 }
                 Opcode::INCE => {
                     self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.d, 1) {
+                    if check_half_carry_8(self.e, 1) {
                         self.set_flag(Flag::H);
                     }
                     self.e = self.e.wrapping_add(1);
-                    if self.d == 0 {
+                    if self.e == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::DECE => {
@@ -418,7 +439,10 @@ impl CPU {
                     self.e = self.e.wrapping_sub(1);
                     if self.e == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::LDEn => {
@@ -483,7 +507,10 @@ impl CPU {
                     self.h = self.h.wrapping_add(1);
                     if self.h == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::DECH => {
@@ -494,7 +521,10 @@ impl CPU {
                     self.h = self.h.wrapping_sub(1);
                     if self.h == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::LDHn => {
@@ -569,7 +599,10 @@ impl CPU {
                     self.l = self.l.wrapping_add(1);
                     if self.l == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::DECL => {
@@ -580,7 +613,10 @@ impl CPU {
                     self.l = self.l.wrapping_sub(1);
                     if self.l == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::LDLn => {
@@ -634,7 +670,10 @@ impl CPU {
                     val = val.wrapping_add(1);
                     if val == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     mmu.write_byte(addr, val);
                     self.m = 3;
                 }
@@ -648,7 +687,10 @@ impl CPU {
                     val = val.wrapping_sub(1);
                     if val == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     mmu.write_byte(addr, val);
                     self.m = 3;
                 }
@@ -711,7 +753,10 @@ impl CPU {
                     self.a = self.a.wrapping_add(1);
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::DECA => {
@@ -722,7 +767,10 @@ impl CPU {
                     self.a = self.a.wrapping_sub(1);
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::LDAn => {
@@ -1487,6 +1535,8 @@ impl CPU {
                     self.a &= self.b;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 1;
                 }
@@ -1497,7 +1547,10 @@ impl CPU {
                     self.a &= self.c;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ANDD => {
@@ -1507,7 +1560,10 @@ impl CPU {
                     self.a &= self.d;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ANDE => {
@@ -1517,7 +1573,10 @@ impl CPU {
                     self.a &= self.e;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ANDH => {
@@ -1527,7 +1586,10 @@ impl CPU {
                     self.a &= self.h;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ANDL => {
@@ -1537,7 +1599,10 @@ impl CPU {
                     self.a &= self.l;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::AND_HL_ => {
@@ -1547,7 +1612,10 @@ impl CPU {
                     self.a &= mmu.read_byte(self.hl());
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 2;
                 }
                 Opcode::ANDA => {
@@ -1557,7 +1625,10 @@ impl CPU {
                     self.a &= self.a;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::XORB => {
@@ -1567,6 +1638,8 @@ impl CPU {
                     self.a ^= self.b;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 1;
                 }
@@ -1577,6 +1650,8 @@ impl CPU {
                     self.a ^= self.c;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 1;
                 }
@@ -1587,6 +1662,8 @@ impl CPU {
                     self.a ^= self.d;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 1;
                 }
@@ -1597,6 +1674,8 @@ impl CPU {
                     self.a ^= self.e;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 1;
                 }
@@ -1607,6 +1686,8 @@ impl CPU {
                     self.a ^= self.h;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 1;
                 }
@@ -1617,6 +1698,8 @@ impl CPU {
                     self.a ^= self.l;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 1;
                 }
@@ -1627,6 +1710,8 @@ impl CPU {
                     self.a ^= mmu.read_byte(self.hl());
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 2;
                 }
@@ -1637,6 +1722,8 @@ impl CPU {
                     self.a ^= self.a;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 1;
                 }
@@ -1647,7 +1734,10 @@ impl CPU {
                     self.a |= self.b;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ORC => {
@@ -1657,7 +1747,10 @@ impl CPU {
                     self.a |= self.c;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ORD => {
@@ -1667,7 +1760,10 @@ impl CPU {
                     self.a |= self.d;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ORE => {
@@ -1677,7 +1773,10 @@ impl CPU {
                     self.a |= self.e;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ORH => {
@@ -1687,7 +1786,10 @@ impl CPU {
                     self.a |= self.h;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::ORL => {
@@ -1697,7 +1799,10 @@ impl CPU {
                     self.a |= self.l;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::OR_HL_ => {
@@ -1707,7 +1812,10 @@ impl CPU {
                     self.a |= mmu.read_byte(self.hl());
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 2;
                 }
                 Opcode::ORA => {
@@ -1717,7 +1825,10 @@ impl CPU {
                     self.a |= self.a;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
+
                     self.m = 1;
                 }
                 Opcode::CPB => {
@@ -2134,6 +2245,8 @@ impl CPU {
                     self.a &= n;
                     if self.a == 0 {
                         self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
                     }
                     self.m = 2;
                 }
@@ -2167,9 +2280,17 @@ impl CPU {
                     self.m = 4;
                 }
                 Opcode::XORn => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
                     let n = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
                     self.a ^= n;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
+                    }
                     self.m = 2;
                 }
                 Opcode::RST28 => {
@@ -2205,9 +2326,17 @@ impl CPU {
                     self.m = 4;
                 }
                 Opcode::ORn => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
+                    self.reset_flag(Flag::C);
                     let n = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
                     self.a |= n;
+                    if self.a == 0 {
+                        self.set_flag(Flag::Z);
+                    } else {
+                        self.reset_flag(Flag::Z);
+                    }
                     self.m = 2;
                 }
                 Opcode::RST30 => {
