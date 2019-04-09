@@ -250,17 +250,105 @@ impl GPU {
     }
 
     fn render_scanline(&self, screen: &mut Screen) {
+        self.render_tiles(screen);
         if self.bg_on() {
-            self.render_bg(screen);
+            // self.render_bg(screen);
         }
 
         if self.window_on() {
-            self.render_window(screen);
+            // self.render_window(screen);
         }
 
         if self.obj_on() {
             // TODO: fix multiply overflow
             // self.render_sprites(screen);
+        }
+    }
+
+    fn render_tiles(&self, screen: &mut Screen) {
+        let mut tile_data: usize = 0;
+        let mut unsigned = true;
+        let mut bg_memory: usize = 0;
+        let lcdc = self.lcdc.get();
+        let ly = self.ly();
+        let scy = self.scy();
+        let scx = self.scx();
+        let wy = self.wy();
+        let wx = self.wx();
+        let mut using_window = false;
+        let vram = self.vram.borrow();
+
+        if self.window_on() && wy <= ly {
+            using_window = true;
+        }
+
+        if test_bit(lcdc, 4) {
+            tile_data = 0;
+        } else {
+            tile_data = 0x1000;
+            unsigned = false;
+        }
+
+        if using_window {
+            if test_bit(lcdc, 6) {
+                bg_memory = 0x1c00;
+            } else {
+                bg_memory = 0x1800
+            }
+        } else {
+            if test_bit(lcdc, 3) {
+                bg_memory = 0x1c00;
+            } else {
+                bg_memory = 0x1800;
+            }
+        }
+
+        let mut y_pos = 0;
+
+        if using_window {
+            y_pos = ly - wy;
+        } else {
+            y_pos = scy + ly;
+        }
+
+        let tile_row: usize = (y_pos as usize >> 3) << 5;
+        let mut tile_col: usize;
+
+        for pixel in 0..160 {
+            let mut x_pos = pixel + scx;
+
+            if using_window {
+                if pixel >= wx {
+                    x_pos = pixel - wx;
+                }
+            }
+
+            tile_col = x_pos as usize >> 3;
+
+            let tile_addr = bg_memory + tile_row + tile_col;
+
+            let mut tile_num = vram[tile_addr] as usize;
+
+            let tile_location = if unsigned {
+                tile_data + (tile_num << 4)
+            } else {
+                if (tile_num & 0x80) == 0x80 {
+                    tile_data - ((!tile_num + 1) << 4)
+                } else {
+                    tile_data + (tile_num << 4)
+                }
+            };
+
+            let y = y_pos & 7;
+            let x = x_pos & 7;
+            let tile = Tile::new(&vram[tile_location..tile_location + 16]);
+            let t_color = tile.color_at(x, y);
+            let p_color = self.bgp_color(t_color);
+
+            if ly > 143 || pixel > 159 {
+                continue;
+            }
+            screen[ly as usize * 144 + pixel as usize] = p_color;
         }
     }
 
@@ -275,6 +363,10 @@ impl GPU {
 
         let mut pixel_x = self.scx() & 7;
         let pixel_y = self.bg_line() & 7;
+
+        if tile_num != 6 {
+            println!("break");
+        }
 
         for screen_x in 0..160 {
             // TODO: if this is too slow, we can calculate when vram is updated
@@ -512,6 +604,11 @@ impl GPU {
     fn obp1_color(&self, color: u8) -> u8 {
         (self.obp1.get() >> ((color & 3) << 1)) & 3
     }
+}
+
+// TODO: move to util module
+fn test_bit(n: u8, b: u8) -> bool {
+    (n & (1 << b)) >> b == 1
 }
 
 #[derive(Debug, PartialEq, FromPrimitive, ToPrimitive)]

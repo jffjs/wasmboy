@@ -140,7 +140,7 @@ impl CPU {
     }
 
     pub fn handle_interrupt(&mut self, iflag: IntFlag, mmu: &mut MMU) {
-        // mmu.rsv(self.clone());
+        mmu.rsv(self.clone());
         self.sp = self.sp.wrapping_sub(2);
         mmu.write_word(self.sp, self.pc);
         match iflag {
@@ -2079,7 +2079,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST8 => {
-                    // mmu.rsv(self.clone());
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x8;
@@ -2144,7 +2144,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST10 => {
-                    // mmu.rsv(self.clone());
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x10;
@@ -2204,7 +2204,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST18 => {
-                    // mmu.rsv(self.clone());
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x18;
@@ -2251,7 +2251,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST20 => {
-                    // mmu.rsv(self.clone());
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x20;
@@ -2294,7 +2294,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST28 => {
-                    // mmu.rsv(self.clone());
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x28;
@@ -2340,7 +2340,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST30 => {
-                    // mmu.rsv(self.clone());
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x30;
@@ -2392,7 +2392,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST38 => {
-                    // mmu.rsv(self.clone());
+                    mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x38;

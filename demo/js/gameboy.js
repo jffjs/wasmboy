@@ -1,4 +1,5 @@
 import { Emulator, CPU } from '../../pkg';
+import { chunk } from 'lodash-es';
 
 const SCREEN_WIDTH = 160;
 const SCREEN_HEIGHT = 144;
@@ -32,6 +33,13 @@ export class Gameboy {
       }
     }
     this.context.putImageData(new ImageData(imageData, SCREEN_WIDTH, SCREEN_HEIGHT), 0, 0);
+  }
+
+  _dbgScreen(screen) {
+    const lines = chunk(screen, 160);
+    lines.forEach(line => {
+      console.log(line.join(''));
+    });
   }
 
   step() {
