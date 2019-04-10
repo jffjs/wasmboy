@@ -436,6 +436,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_write() {
         let mut cart_data = [0; 0xffff];
         cart_data[0x147] = 0x1;
@@ -478,6 +479,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_mbc2() {
         let mut mmu = MMU::new(mbc2_cart(), timer(), gpu());
 

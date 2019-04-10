@@ -2,6 +2,7 @@ use emulator::IntFlag;
 use mmu::MMU;
 use num::FromPrimitive;
 use opcode::*;
+use utils::*;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -36,6 +37,13 @@ enum Flag {
     N,
     H,
     C,
+}
+
+enum Condition {
+    Z,
+    NZ,
+    C,
+    NC,
 }
 
 #[derive(Clone, Copy)]
@@ -98,339 +106,6 @@ impl CPU {
 
     pub fn stop(&self) -> bool {
         self.stop
-    }
-
-    fn bc(&self) -> u16 {
-        ((self.b as u16) << 8) + self.c as u16
-    }
-
-    fn de(&self) -> u16 {
-        ((self.d as u16) << 8) + self.e as u16
-    }
-
-    fn hl(&self) -> u16 {
-        ((self.h as u16) << 8) + self.l as u16
-    }
-
-    fn test_flag(&self, flag: Flag) -> u8 {
-        match flag {
-            Flag::Z => (self.f & 0x80) >> 7,
-            Flag::N => (self.f & 0x40) >> 6,
-            Flag::H => (self.f & 0x20) >> 5,
-            Flag::C => (self.f & 0x10) >> 4,
-        }
-    }
-
-    fn set_flag(&mut self, flag: Flag) {
-        match flag {
-            Flag::Z => self.f |= 0x80,
-            Flag::N => self.f |= 0x40,
-            Flag::H => self.f |= 0x20,
-            Flag::C => self.f |= 0x10,
-        }
-    }
-
-    fn reset_flag(&mut self, flag: Flag) {
-        match flag {
-            Flag::Z => self.f &= 0x7f,
-            Flag::N => self.f &= 0xbf,
-            Flag::H => self.f &= 0xdf,
-            Flag::C => self.f &= 0xef,
-        }
-    }
-
-    fn restore(&mut self, copy: CPU) {
-        self.a = copy.a;
-        self.f = copy.f;
-        self.b = copy.b;
-        self.c = copy.c;
-        self.d = copy.d;
-        self.e = copy.e;
-        self.h = copy.h;
-        self.l = copy.l;
-    }
-
-    fn get_reg(&self, reg: Reg) -> u8 {
-        match reg {
-            Reg::A => self.a,
-            Reg::B => self.b,
-            Reg::C => self.c,
-            Reg::D => self.d,
-            Reg::E => self.e,
-            Reg::H => self.h,
-            Reg::L => self.l,
-        }
-    }
-
-    fn set_reg(&mut self, reg: Reg, value: u8) {
-        match reg {
-            Reg::A => self.a = value,
-            Reg::B => self.b = value,
-            Reg::C => self.c = value,
-            Reg::D => self.d = value,
-            Reg::E => self.e = value,
-            Reg::H => self.h = value,
-            Reg::L => self.l = value,
-        }
-    }
-
-    fn add(&mut self, value: u8) {
-        self.f = 0;
-        if check_half_carry_8(self.a, value) {
-            self.set_flag(Flag::H);
-        }
-        if check_carry_8(self.a, value) {
-            self.set_flag(Flag::C);
-        }
-        self.a = self.a.wrapping_add(value);
-        if self.a == 0 {
-            self.set_flag(Flag::Z);
-        }
-        self.m = 1;
-    }
-
-    fn adc(&mut self, value: u8) {
-        self.f = 0;
-        let carry = self.test_flag(Flag::C);
-        let value = value.wrapping_add(carry);
-        self.reset_flag(Flag::N);
-        if check_half_carry_8(self.a, value) {
-            self.set_flag(Flag::H);
-        }
-        if check_carry_8(self.a, value) {
-            self.set_flag(Flag::C);
-        }
-        self.a = self.a.wrapping_add(value);
-        if self.a == 0 {
-            self.set_flag(Flag::Z);
-        }
-        self.m = 1;
-    }
-
-    fn sub(&mut self, value: u8) {
-        self.f = 0;
-        self.set_flag(Flag::N);
-        if check_half_borrow_8(self.a, value) {
-            self.set_flag(Flag::H);
-        }
-        if check_borrow_8(self.a, value) {
-            self.set_flag(Flag::C);
-        }
-        self.a = self.a.wrapping_sub(value);
-        if self.a == 0 {
-            self.set_flag(Flag::Z);
-        }
-        self.m = 1;
-    }
-
-    fn sbc(&mut self, value: u8) {
-        self.f = 0;
-        let carry = self.test_flag(Flag::C);
-        let value = value.wrapping_sub(carry);
-        self.set_flag(Flag::N);
-        if check_half_borrow_8(self.a, value) {
-            self.set_flag(Flag::H);
-        }
-        if check_borrow_8(self.a, value) {
-            self.set_flag(Flag::C);
-        }
-        self.a = self.a.wrapping_sub(value);
-        if self.a == 0 {
-            self.set_flag(Flag::Z);
-        }
-        self.m = 1;
-    }
-
-    fn and(&mut self, value: u8) {
-        self.f = 0;
-        self.set_flag(Flag::H);
-        self.a &= value;
-        if self.a == 0 {
-            self.set_flag(Flag::Z);
-        }
-        self.m = 1;
-    }
-
-    fn xor(&mut self, value: u8) {
-        self.f = 0;
-        self.a ^= value;
-        if self.a == 0 {
-            self.set_flag(Flag::Z);
-        }
-        self.m = 1;
-    }
-
-    fn or(&mut self, value: u8) {
-        self.f = 0;
-        self.a |= value;
-        if self.a == 0 {
-            self.set_flag(Flag::Z);
-        }
-        self.m = 1;
-    }
-
-    fn cmp(&mut self, value: u8) {
-        self.f = 0;
-        self.set_flag(Flag::N);
-        if check_half_borrow_8(self.a, value) {
-            self.set_flag(Flag::H);
-        }
-        if check_borrow_8(self.a, value) {
-            self.set_flag(Flag::C);
-        }
-        if self.a == value {
-            self.set_flag(Flag::Z);
-        }
-        self.m = 1;
-    }
-
-    fn inc_val(&mut self, value: u8) -> u8 {
-        self.f = 0;
-        if check_half_carry_8(value, 1) {
-            self.set_flag(Flag::H);
-        }
-        let value = value.wrapping_add(1);
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        }
-        value
-    }
-
-    fn inc(&mut self, reg: Reg) {
-        let mut value = self.get_reg(reg);
-        value = self.inc_val(value);
-        self.set_reg(reg, value);
-        self.m = 1;
-    }
-
-    fn dec_val(&mut self, value: u8) -> u8 {
-        self.f = 0;
-        self.set_flag(Flag::N);
-        if check_half_borrow_8(value, 1) {
-            self.set_flag(Flag::H);
-        }
-        let value = value.wrapping_sub(1);
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        }
-        value
-    }
-
-    fn dec(&mut self, reg: Reg) {
-        let mut value = self.get_reg(reg);
-        value = self.dec_val(value);
-        self.set_reg(reg, value);
-        self.m = 1;
-    }
-
-    fn rlc_val(&mut self, value: u8) -> u8 {
-        self.f = 0;
-        let b7 = (value & 0x80) >> 7;
-        if b7 == 1 {
-            self.set_flag(Flag::C);
-        } else {
-            self.reset_flag(Flag::C);
-        }
-        let value = value.rotate_left(1);
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        }
-        value
-    }
-
-    fn rlc(&mut self, reg: Reg) {
-        let mut value = self.get_reg(reg);
-        value = self.rlc_val(value);
-        self.set_reg(reg, value);
-        self.m = 2;
-    }
-
-    fn rrc_val(&mut self, value: u8) -> u8 {
-        self.f = 0;
-        let b0 = value & 0x1;
-        if b0 == 1 {
-            self.set_flag(Flag::C);
-        } else {
-            self.reset_flag(Flag::C);
-        }
-        let value = value.rotate_right(1);
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        }
-        value
-    }
-
-    fn rrc(&mut self, reg: Reg) {
-        let mut value = self.get_reg(reg);
-        value = self.rrc_val(value);
-        self.set_reg(reg, value);
-        self.m = 2;
-    }
-
-    fn rl_val(&mut self, value: u8) -> u8 {
-        self.f = 0;
-        let b7 = (value & 0x80) >> 7;
-        let value = (value << 1) | self.test_flag(Flag::C);
-        if b7 == 1 {
-            self.set_flag(Flag::C);
-        } else {
-            self.reset_flag(Flag::C);
-        }
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        }
-        value
-    }
-
-    fn rl(&mut self, reg: Reg) {
-        let mut value = self.get_reg(reg);
-        value = self.rl_val(value);
-        self.set_reg(reg, value);
-        self.m = 2;
-    }
-
-    fn rr_val(&mut self, value: u8) -> u8 {
-        self.f = 0;
-        let b0 = value & 0x1;
-        let value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-        if b0 == 1 {
-            self.set_flag(Flag::C);
-        } else {
-            self.reset_flag(Flag::C);
-        }
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        }
-        value
-    }
-
-    fn rr(&mut self, reg: Reg) {
-        let mut value = self.get_reg(reg);
-        value = self.rr_val(value);
-        self.set_reg(reg, value);
-        self.m = 2;
-    }
-
-    fn sla_val(&mut self, value: u8) -> u8 {
-        self.f = 0;
-        let b7 = (value & 0x80) >> 7;
-        if b7 == 1 {
-            self.set_flag(Flag::C);
-        } else {
-            self.reset_flag(Flag::C);
-        }
-        let value = value << 1;
-        if value == 0 {
-            self.set_flag(Flag::Z);
-        }
-        value
-    }
-
-    fn sla(&mut self, reg: Reg) {
-        let mut value = self.get_reg(reg);
-        value = self.sla_val(value);
-        self.set_reg(reg, value);
-        self.m = 2;
     }
 
     pub fn handle_interrupt(&mut self, iflag: IntFlag, mmu: &mut MMU) {
@@ -1408,15 +1083,7 @@ impl CPU {
                     self.m = 4;
                 }
                 Opcode::CALLNZnn => {
-                    self.m = 3;
-                    if self.test_flag(Flag::Z) == 0 {
-                        self.sp = self.sp.wrapping_sub(2);
-                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
-                        self.pc = mmu.read_word(self.pc);
-                        self.m += 3;
-                    } else {
-                        self.pc = self.pc.wrapping_add(2);
-                    }
+                    self.call(Some(Condition::NZ), mmu);
                 }
                 Opcode::PUSHBC => {
                     self.sp = self.sp.wrapping_sub(1);
@@ -1461,21 +1128,10 @@ impl CPU {
                 }
                 Opcode::ExtOps => return self.exec_ext(mmu),
                 Opcode::CALLZnn => {
-                    self.m = 3;
-                    if self.test_flag(Flag::Z) == 1 {
-                        self.sp = self.sp.wrapping_sub(2);
-                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
-                        self.pc = mmu.read_word(self.pc);
-                        self.m += 3;
-                    } else {
-                        self.pc = self.pc.wrapping_add(2);
-                    }
+                    self.call(Some(Condition::Z), mmu);
                 }
                 Opcode::CALLnn => {
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc.wrapping_add(2));
-                    self.pc = mmu.read_word(self.pc);
-                    self.m = 6;
+                    self.call(None, mmu);
                 }
                 Opcode::ADCAn => {
                     let value = mmu.read_byte(self.pc);
@@ -1515,15 +1171,7 @@ impl CPU {
                     }
                 }
                 Opcode::CALLNCnn => {
-                    self.m = 3;
-                    if self.test_flag(Flag::C) == 0 {
-                        self.sp = self.sp.wrapping_sub(2);
-                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
-                        self.pc = mmu.read_word(self.pc);
-                        self.m += 3;
-                    } else {
-                        self.pc = self.pc.wrapping_add(2);
-                    }
+                    self.call(Some(Condition::NC), mmu);
                 }
                 Opcode::PUSHDE => {
                     self.sp = self.sp.wrapping_sub(1);
@@ -1570,15 +1218,7 @@ impl CPU {
                     }
                 }
                 Opcode::CALLCnn => {
-                    self.m = 3;
-                    if self.test_flag(Flag::C) == 1 {
-                        self.sp = self.sp.wrapping_sub(2);
-                        mmu.write_word(self.sp, self.pc.wrapping_add(2));
-                        self.pc = mmu.read_word(self.pc);
-                        self.m += 3;
-                    } else {
-                        self.pc = self.pc.wrapping_add(2);
-                    }
+                    self.call(Some(Condition::C), mmu);
                 }
                 Opcode::SBCAn => {
                     let mut value = mmu.read_byte(self.pc);
@@ -1913,1436 +1553,712 @@ impl CPU {
                     self.sla(Reg::A);
                 }
                 ExtOpcode::SRAB => {
-                    let mut value = self.b;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let msb = value & 0x80;
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = msb + (value >> 1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.b = value;
-                    self.m = 2;
+                    self.sra(Reg::B);
                 }
                 ExtOpcode::SRAC => {
-                    let mut value = self.c;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let msb = value & 0x80;
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = msb + (value >> 1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.c = value;
-                    self.m = 2;
+                    self.sra(Reg::C);
                 }
                 ExtOpcode::SRAD => {
-                    let mut value = self.d;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let msb = value & 0x80;
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = msb + (value >> 1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.d = value;
-                    self.m = 2;
+                    self.sra(Reg::D);
                 }
                 ExtOpcode::SRAE => {
-                    let mut value = self.e;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let msb = value & 0x80;
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = msb + (value >> 1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.e = value;
-                    self.m = 2;
+                    self.sra(Reg::E);
                 }
                 ExtOpcode::SRAH => {
-                    let mut value = self.h;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let msb = value & 0x80;
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = msb + (value >> 1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.h = value;
-                    self.m = 2;
+                    self.sra(Reg::H);
                 }
                 ExtOpcode::SRAL => {
-                    let mut value = self.l;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let msb = value & 0x80;
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = msb + (value >> 1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.l = value;
-                    self.m = 2;
+                    self.sra(Reg::L);
                 }
                 ExtOpcode::SRA_HL_ => {
-                    let mut value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let msb = value & 0x80;
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = msb + (value >> 1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    mmu.write_byte(self.hl(), value);
+                    let addr = self.hl();
+                    let mut value = mmu.read_byte(addr);
+                    value = self.sra_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 4;
                 }
                 ExtOpcode::SRAA => {
-                    let mut value = self.a;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let msb = value & 0x80;
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = msb + (value >> 1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.a = value;
-                    self.m = 2;
+                    self.sra(Reg::A);
                 }
                 ExtOpcode::SWAPB => {
-                    let mut value = self.b;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    let upper = value >> 4;
-                    let lower = value & 0xf;
-                    value = (lower << 4) + upper;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.b = value;
-                    self.m = 2;
+                    self.swap(Reg::B);
                 }
                 ExtOpcode::SWAPC => {
-                    let mut value = self.c;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    let upper = value >> 4;
-                    let lower = value & 0xf;
-                    value = (lower << 4) + upper;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.c = value;
-                    self.m = 2;
+                    self.swap(Reg::C);
                 }
                 ExtOpcode::SWAPD => {
-                    let mut value = self.d;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    let upper = value >> 4;
-                    let lower = value & 0xf;
-                    value = (lower << 4) + upper;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.d = value;
-                    self.m = 2;
+                    self.swap(Reg::D);
                 }
                 ExtOpcode::SWAPE => {
-                    let mut value = self.e;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    let upper = value >> 4;
-                    let lower = value & 0xf;
-                    value = (lower << 4) + upper;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.e = value;
-                    self.m = 2;
+                    self.swap(Reg::E);
                 }
                 ExtOpcode::SWAPH => {
-                    let mut value = self.h;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    let upper = value >> 4;
-                    let lower = value & 0xf;
-                    value = (lower << 4) + upper;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.h = value;
-                    self.m = 2;
+                    self.swap(Reg::H);
                 }
                 ExtOpcode::SWAPL => {
-                    let mut value = self.l;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    let upper = value >> 4;
-                    let lower = value & 0xf;
-                    value = (lower << 4) + upper;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.l = value;
-                    self.m = 2;
+                    self.swap(Reg::L);
                 }
                 ExtOpcode::SWAP_HL_ => {
-                    let mut value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    let upper = value >> 4;
-                    let lower = value & 0xf;
-                    value = (lower << 4) + upper;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    mmu.write_byte(self.hl(), value);
+                    let addr = self.hl();
+                    let mut value = mmu.read_byte(addr);
+                    value = self.swap_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 4;
                 }
                 ExtOpcode::SWAPA => {
-                    let mut value = self.a;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    self.reset_flag(Flag::C);
-                    let upper = value >> 4;
-                    let lower = value & 0xf;
-                    value = (lower << 4) + upper;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.a = value;
-                    self.m = 2;
+                    self.swap(Reg::A);
                 }
                 ExtOpcode::SRLB => {
-                    let mut value = self.b;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value >> 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.b = value;
-                    self.m = 2;
+                    self.srl(Reg::B);
                 }
                 ExtOpcode::SRLC => {
-                    let mut value = self.c;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value >> 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.c = value;
-                    self.m = 2;
+                    self.srl(Reg::C);
                 }
                 ExtOpcode::SRLD => {
-                    let mut value = self.d;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value >> 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.d = value;
-                    self.m = 2;
+                    self.srl(Reg::D);
                 }
                 ExtOpcode::SRLE => {
-                    let mut value = self.e;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value >> 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.e = value;
-                    self.m = 2;
+                    self.srl(Reg::E);
                 }
                 ExtOpcode::SRLH => {
-                    let mut value = self.h;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value >> 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.h = value;
-                    self.m = 2;
+                    self.srl(Reg::H);
                 }
                 ExtOpcode::SRLL => {
-                    let mut value = self.l;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value >> 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.l = value;
-                    self.m = 2;
+                    self.srl(Reg::L);
                 }
                 ExtOpcode::SRL_HL_ => {
-                    let mut value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value >> 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    mmu.write_byte(self.hl(), value);
+                    let addr = self.hl();
+                    let mut value = mmu.read_byte(addr);
+                    value = self.srl_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 4;
                 }
                 ExtOpcode::SRLA => {
-                    let mut value = self.a;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value >> 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.a = value;
-                    self.m = 2;
+                    self.srl(Reg::A);
                 }
                 ExtOpcode::BIT0B => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(0, self.b) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::B, 0);
                 }
                 ExtOpcode::BIT0C => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(0, self.c) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::C, 0);
                 }
                 ExtOpcode::BIT0D => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(0, self.d) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::D, 0);
                 }
                 ExtOpcode::BIT0E => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(0, self.e) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::E, 0);
                 }
                 ExtOpcode::BIT0H => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(0, self.h) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::H, 0);
                 }
                 ExtOpcode::BIT0L => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(0, self.l) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::L, 0);
                 }
                 ExtOpcode::BIT0_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(0, mmu.read_byte(self.hl())) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 4;
+                    let value = mmu.read_byte(self.hl());
+                    self.bit_val(value, 0);
+                    self.m = 3;
                 }
                 ExtOpcode::BIT0A => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(0, self.a) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::A, 0);
                 }
                 ExtOpcode::BIT1B => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(1, self.b) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::B, 1);
                 }
                 ExtOpcode::BIT1C => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(1, self.c) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::C, 1);
                 }
                 ExtOpcode::BIT1D => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(1, self.d) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::D, 1);
                 }
                 ExtOpcode::BIT1E => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(1, self.e) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::E, 1);
                 }
                 ExtOpcode::BIT1H => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(1, self.h) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::H, 1);
                 }
                 ExtOpcode::BIT1L => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(1, self.l) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::L, 1);
                 }
                 ExtOpcode::BIT1_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(1, mmu.read_byte(self.hl())) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 4;
+                    let value = mmu.read_byte(self.hl());
+                    self.bit_val(value, 1);
+                    self.m = 3;
                 }
                 ExtOpcode::BIT1A => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(1, self.a) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::A, 1);
                 }
                 ExtOpcode::BIT2B => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(2, self.b) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::B, 2);
                 }
                 ExtOpcode::BIT2C => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(2, self.c) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::C, 2);
                 }
                 ExtOpcode::BIT2D => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(2, self.d) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::D, 2);
                 }
                 ExtOpcode::BIT2E => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(2, self.e) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::E, 2);
                 }
                 ExtOpcode::BIT2H => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(2, self.h) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::H, 2);
                 }
                 ExtOpcode::BIT2L => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(2, self.l) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::L, 2);
                 }
                 ExtOpcode::BIT2_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(2, mmu.read_byte(self.hl())) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 4;
+                    let value = mmu.read_byte(self.hl());
+                    self.bit_val(value, 2);
+                    self.m = 3;
                 }
                 ExtOpcode::BIT2A => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(2, self.a) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::A, 2);
                 }
                 ExtOpcode::BIT3B => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(3, self.b) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::B, 3);
                 }
                 ExtOpcode::BIT3C => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(3, self.c) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::C, 3);
                 }
                 ExtOpcode::BIT3D => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(3, self.d) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::D, 3);
                 }
                 ExtOpcode::BIT3E => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(3, self.e) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::E, 3);
                 }
                 ExtOpcode::BIT3H => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(3, self.h) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::H, 3);
                 }
                 ExtOpcode::BIT3L => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(3, self.l) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::L, 3);
                 }
                 ExtOpcode::BIT3_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(3, mmu.read_byte(self.hl())) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 4;
+                    let value = mmu.read_byte(self.hl());
+                    self.bit_val(value, 3);
+                    self.m = 3;
                 }
                 ExtOpcode::BIT3A => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(3, self.a) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::A, 3);
                 }
                 ExtOpcode::BIT4B => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(4, self.b) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::B, 4);
                 }
                 ExtOpcode::BIT4C => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(4, self.c) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::C, 4);
                 }
                 ExtOpcode::BIT4D => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(4, self.d) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::D, 4);
                 }
                 ExtOpcode::BIT4E => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(4, self.e) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::E, 4);
                 }
                 ExtOpcode::BIT4H => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(4, self.h) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::H, 4);
                 }
                 ExtOpcode::BIT4L => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(4, self.l) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::L, 4);
                 }
                 ExtOpcode::BIT4_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(4, mmu.read_byte(self.hl())) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 4;
+                    let value = mmu.read_byte(self.hl());
+                    self.bit_val(value, 4);
+                    self.m = 3;
                 }
                 ExtOpcode::BIT4A => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(4, self.a) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::A, 4);
                 }
                 ExtOpcode::BIT5B => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(5, self.b) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::B, 5);
                 }
                 ExtOpcode::BIT5C => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(5, self.c) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::C, 5);
                 }
                 ExtOpcode::BIT5D => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(5, self.d) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::D, 5);
                 }
                 ExtOpcode::BIT5E => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(5, self.e) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::E, 5);
                 }
                 ExtOpcode::BIT5H => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(5, self.h) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::H, 5);
                 }
                 ExtOpcode::BIT5L => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(5, self.l) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::L, 5);
                 }
                 ExtOpcode::BIT5_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(5, mmu.read_byte(self.hl())) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 4;
+                    let value = mmu.read_byte(self.hl());
+                    self.bit_val(value, 5);
+                    self.m = 3;
                 }
                 ExtOpcode::BIT5A => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(5, self.a) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::A, 5);
                 }
                 ExtOpcode::BIT6B => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(6, self.b) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::B, 6);
                 }
                 ExtOpcode::BIT6C => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(6, self.c) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::C, 6);
                 }
                 ExtOpcode::BIT6D => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(6, self.d) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::D, 6);
                 }
                 ExtOpcode::BIT6E => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(6, self.e) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::E, 6);
                 }
                 ExtOpcode::BIT6H => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(6, self.h) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::H, 6);
                 }
                 ExtOpcode::BIT6L => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(6, self.l) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::L, 6);
                 }
                 ExtOpcode::BIT6_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(6, mmu.read_byte(self.hl())) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 4;
+                    let value = mmu.read_byte(self.hl());
+                    self.bit_val(value, 6);
+                    self.m = 3;
                 }
                 ExtOpcode::BIT6A => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(6, self.a) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::A, 6);
                 }
                 ExtOpcode::BIT7B => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(7, self.b) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::B, 7);
                 }
                 ExtOpcode::BIT7C => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(7, self.c) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::C, 7);
                 }
                 ExtOpcode::BIT7D => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(7, self.d) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::D, 7);
                 }
                 ExtOpcode::BIT7E => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(7, self.e) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::E, 7);
                 }
                 ExtOpcode::BIT7H => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(7, self.h) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::H, 7);
                 }
                 ExtOpcode::BIT7L => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(7, self.l) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::L, 7);
                 }
                 ExtOpcode::BIT7_HL_ => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(7, mmu.read_byte(self.hl())) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 4;
+                    let value = mmu.read_byte(self.hl());
+                    self.bit_val(value, 7);
+                    self.m = 3;
                 }
                 ExtOpcode::BIT7A => {
-                    self.reset_flag(Flag::N);
-                    self.set_flag(Flag::H);
-                    if test_bit(7, self.a) == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.m = 2;
+                    self.bit(Reg::A, 7);
                 }
                 ExtOpcode::RES0B => {
-                    self.b &= 0xfe;
-                    self.m = 2;
+                    self.res(Reg::B, 0);
                 }
                 ExtOpcode::RES0C => {
-                    self.c &= 0xfe;
-                    self.m = 2;
+                    self.res(Reg::C, 0);
                 }
                 ExtOpcode::RES0D => {
-                    self.d &= 0xfe;
-                    self.m = 2;
+                    self.res(Reg::D, 0);
                 }
                 ExtOpcode::RES0E => {
-                    self.e &= 0xfe;
-                    self.m = 2;
+                    self.res(Reg::E, 0);
                 }
                 ExtOpcode::RES0H => {
-                    self.h &= 0xfe;
-                    self.m = 2;
+                    self.res(Reg::H, 0);
                 }
                 ExtOpcode::RES0L => {
-                    self.l &= 0xfe;
-                    self.m = 2;
+                    self.res(Reg::L, 0);
                 }
                 ExtOpcode::RES0_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value & 0xfe);
+                    mmu.write_byte(self.hl(), reset_bit(0, value));
                     self.m = 4;
                 }
                 ExtOpcode::RES0A => {
-                    self.a &= 0xfe;
-                    self.m = 2;
+                    self.res(Reg::A, 0);
                 }
                 ExtOpcode::RES1B => {
-                    self.b &= 0xfd;
-                    self.m = 2;
+                    self.res(Reg::B, 1);
                 }
                 ExtOpcode::RES1C => {
-                    self.c &= 0xfd;
-                    self.m = 2;
+                    self.res(Reg::C, 1);
                 }
                 ExtOpcode::RES1D => {
-                    self.d &= 0xfd;
-                    self.m = 2;
+                    self.res(Reg::D, 1);
                 }
                 ExtOpcode::RES1E => {
-                    self.e &= 0xfd;
-                    self.m = 2;
+                    self.res(Reg::E, 1);
                 }
                 ExtOpcode::RES1H => {
-                    self.h &= 0xfd;
-                    self.m = 2;
+                    self.res(Reg::H, 1);
                 }
                 ExtOpcode::RES1L => {
-                    self.l &= 0xfd;
-                    self.m = 2;
+                    self.res(Reg::L, 1);
                 }
                 ExtOpcode::RES1_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value & 0xfd);
+                    mmu.write_byte(self.hl(), reset_bit(1, value));
                     self.m = 4;
                 }
                 ExtOpcode::RES1A => {
-                    self.a &= 0xfd;
-                    self.m = 2;
+                    self.res(Reg::A, 1);
                 }
                 ExtOpcode::RES2B => {
-                    self.b &= 0xfb;
-                    self.m = 2;
+                    self.res(Reg::B, 2);
                 }
                 ExtOpcode::RES2C => {
-                    self.c &= 0xfb;
-                    self.m = 2;
+                    self.res(Reg::C, 2);
                 }
                 ExtOpcode::RES2D => {
-                    self.d &= 0xfb;
-                    self.m = 2;
+                    self.res(Reg::D, 2);
                 }
                 ExtOpcode::RES2E => {
-                    self.e &= 0xfb;
-                    self.m = 2;
+                    self.res(Reg::E, 2);
                 }
                 ExtOpcode::RES2H => {
-                    self.h &= 0xfb;
-                    self.m = 2;
+                    self.res(Reg::H, 2);
                 }
                 ExtOpcode::RES2L => {
-                    self.l &= 0xfb;
-                    self.m = 2;
+                    self.res(Reg::L, 2);
                 }
                 ExtOpcode::RES2_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value & 0xfb);
+                    mmu.write_byte(self.hl(), reset_bit(2, value));
                     self.m = 4;
                 }
                 ExtOpcode::RES2A => {
-                    self.a &= 0xfb;
-                    self.m = 2;
+                    self.res(Reg::A, 2);
                 }
                 ExtOpcode::RES3B => {
-                    self.b &= 0xf7;
-                    self.m = 2;
+                    self.res(Reg::B, 3);
                 }
                 ExtOpcode::RES3C => {
-                    self.c &= 0xf7;
-                    self.m = 2;
+                    self.res(Reg::C, 3);
                 }
                 ExtOpcode::RES3D => {
-                    self.d &= 0xf7;
-                    self.m = 2;
+                    self.res(Reg::D, 3);
                 }
                 ExtOpcode::RES3E => {
-                    self.e &= 0xf7;
-                    self.m = 2;
+                    self.res(Reg::E, 3);
                 }
                 ExtOpcode::RES3H => {
-                    self.h &= 0xf7;
-                    self.m = 2;
+                    self.res(Reg::H, 3);
                 }
                 ExtOpcode::RES3L => {
-                    self.l &= 0xf7;
-                    self.m = 2;
+                    self.res(Reg::L, 3);
                 }
                 ExtOpcode::RES3_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value & 0xf7);
+                    mmu.write_byte(self.hl(), reset_bit(3, value));
                     self.m = 4;
                 }
                 ExtOpcode::RES3A => {
-                    self.a &= 0xf7;
-                    self.m = 2;
+                    self.res(Reg::A, 3);
                 }
                 ExtOpcode::RES4B => {
-                    self.b &= 0xef;
-                    self.m = 2;
+                    self.res(Reg::B, 4);
                 }
                 ExtOpcode::RES4C => {
-                    self.c &= 0xef;
-                    self.m = 2;
+                    self.res(Reg::C, 4);
                 }
                 ExtOpcode::RES4D => {
-                    self.d &= 0xef;
-                    self.m = 2;
+                    self.res(Reg::D, 4);
                 }
                 ExtOpcode::RES4E => {
-                    self.e &= 0xef;
-                    self.m = 2;
+                    self.res(Reg::E, 4);
                 }
                 ExtOpcode::RES4H => {
-                    self.h &= 0xef;
-                    self.m = 2;
+                    self.res(Reg::H, 4);
                 }
                 ExtOpcode::RES4L => {
-                    self.l &= 0xef;
-                    self.m = 2;
+                    self.res(Reg::L, 4);
                 }
                 ExtOpcode::RES4_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value & 0xef);
+                    mmu.write_byte(self.hl(), reset_bit(4, value));
                     self.m = 4;
                 }
                 ExtOpcode::RES4A => {
-                    self.a &= 0xef;
-                    self.m = 2;
+                    self.res(Reg::A, 4);
                 }
                 ExtOpcode::RES5B => {
-                    self.b &= 0xdf;
-                    self.m = 2;
+                    self.res(Reg::B, 5);
                 }
                 ExtOpcode::RES5C => {
-                    self.c &= 0xdf;
-                    self.m = 2;
+                    self.res(Reg::C, 5);
                 }
                 ExtOpcode::RES5D => {
-                    self.d &= 0xdf;
-                    self.m = 2;
+                    self.res(Reg::D, 5);
                 }
                 ExtOpcode::RES5E => {
-                    self.e &= 0xdf;
-                    self.m = 2;
+                    self.res(Reg::E, 5);
                 }
                 ExtOpcode::RES5H => {
-                    self.h &= 0xdf;
-                    self.m = 2;
+                    self.res(Reg::H, 5);
                 }
                 ExtOpcode::RES5L => {
-                    self.l &= 0xdf;
-                    self.m = 2;
+                    self.res(Reg::L, 5);
                 }
                 ExtOpcode::RES5_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value & 0xdf);
+                    mmu.write_byte(self.hl(), reset_bit(5, value));
                     self.m = 4;
                 }
                 ExtOpcode::RES5A => {
-                    self.a &= 0xdf;
-                    self.m = 2;
+                    self.res(Reg::A, 5);
                 }
                 ExtOpcode::RES6B => {
-                    self.b &= 0xbf;
-                    self.m = 2;
+                    self.res(Reg::B, 6);
                 }
                 ExtOpcode::RES6C => {
-                    self.c &= 0xbf;
-                    self.m = 2;
+                    self.res(Reg::C, 6);
                 }
                 ExtOpcode::RES6D => {
-                    self.d &= 0xbf;
-                    self.m = 2;
+                    self.res(Reg::D, 6);
                 }
                 ExtOpcode::RES6E => {
-                    self.e &= 0xbf;
-                    self.m = 2;
+                    self.res(Reg::E, 6);
                 }
                 ExtOpcode::RES6H => {
-                    self.h &= 0xbf;
-                    self.m = 2;
+                    self.res(Reg::H, 6);
                 }
                 ExtOpcode::RES6L => {
-                    self.l &= 0xbf;
-                    self.m = 2;
+                    self.res(Reg::L, 6);
                 }
                 ExtOpcode::RES6_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value & 0xbf);
+                    mmu.write_byte(self.hl(), reset_bit(6, value));
                     self.m = 4;
                 }
                 ExtOpcode::RES6A => {
-                    self.a &= 0xbf;
-                    self.m = 2;
+                    self.res(Reg::A, 6);
                 }
                 ExtOpcode::RES7B => {
-                    self.b &= 0x7f;
-                    self.m = 2;
+                    self.res(Reg::B, 7);
                 }
                 ExtOpcode::RES7C => {
-                    self.c &= 0x7f;
-                    self.m = 2;
+                    self.res(Reg::C, 7);
                 }
                 ExtOpcode::RES7D => {
-                    self.d &= 0x7f;
-                    self.m = 2;
+                    self.res(Reg::D, 7);
                 }
                 ExtOpcode::RES7E => {
-                    self.e &= 0x7f;
-                    self.m = 2;
+                    self.res(Reg::E, 7);
                 }
                 ExtOpcode::RES7H => {
-                    self.h &= 0x7f;
-                    self.m = 2;
+                    self.res(Reg::H, 7);
                 }
                 ExtOpcode::RES7L => {
-                    self.l &= 0x7f;
-                    self.m = 2;
+                    self.res(Reg::L, 7);
                 }
                 ExtOpcode::RES7_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value & 0x7f);
+                    mmu.write_byte(self.hl(), reset_bit(7, value));
                     self.m = 4;
                 }
                 ExtOpcode::RES7A => {
-                    self.a &= 0x7f;
-                    self.m = 2;
+                    self.res(Reg::A, 7);
                 }
                 ExtOpcode::SET0B => {
-                    self.b |= 0x01;
-                    self.m = 2;
+                    self.set(Reg::B, 0);
                 }
                 ExtOpcode::SET0C => {
-                    self.c |= 0x01;
-                    self.m = 2;
+                    self.set(Reg::C, 0);
                 }
                 ExtOpcode::SET0D => {
-                    self.d |= 0x01;
-                    self.m = 2;
+                    self.set(Reg::D, 0);
                 }
                 ExtOpcode::SET0E => {
-                    self.e |= 0x01;
-                    self.m = 2;
+                    self.set(Reg::E, 0);
                 }
                 ExtOpcode::SET0H => {
-                    self.h |= 0x01;
-                    self.m = 2;
+                    self.set(Reg::H, 0);
                 }
                 ExtOpcode::SET0L => {
-                    self.l |= 0x01;
-                    self.m = 2;
+                    self.set(Reg::L, 0);
                 }
                 ExtOpcode::SET0_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value | 0x01);
+                    mmu.write_byte(self.hl(), set_bit(0, value));
                     self.m = 4;
                 }
                 ExtOpcode::SET0A => {
-                    self.a |= 0x01;
-                    self.m = 2;
+                    self.set(Reg::A, 0);
                 }
                 ExtOpcode::SET1B => {
-                    self.b |= 0x02;
-                    self.m = 2;
+                    self.set(Reg::B, 1);
                 }
                 ExtOpcode::SET1C => {
-                    self.c |= 0x02;
-                    self.m = 2;
+                    self.set(Reg::C, 1);
                 }
                 ExtOpcode::SET1D => {
-                    self.d |= 0x02;
-                    self.m = 2;
+                    self.set(Reg::D, 1);
                 }
                 ExtOpcode::SET1E => {
-                    self.e |= 0x02;
-                    self.m = 2;
+                    self.set(Reg::E, 1);
                 }
                 ExtOpcode::SET1H => {
-                    self.h |= 0x02;
-                    self.m = 2;
+                    self.set(Reg::H, 1);
                 }
                 ExtOpcode::SET1L => {
-                    self.l |= 0x02;
-                    self.m = 2;
+                    self.set(Reg::L, 1);
                 }
                 ExtOpcode::SET1_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value | 0x02);
+                    mmu.write_byte(self.hl(), set_bit(1, value));
                     self.m = 4;
                 }
                 ExtOpcode::SET1A => {
-                    self.a |= 0x02;
-                    self.m = 2;
+                    self.set(Reg::A, 1);
                 }
                 ExtOpcode::SET2B => {
-                    self.b |= 0x04;
-                    self.m = 2;
+                    self.set(Reg::B, 2);
                 }
                 ExtOpcode::SET2C => {
-                    self.c |= 0x04;
-                    self.m = 2;
+                    self.set(Reg::C, 2);
                 }
                 ExtOpcode::SET2D => {
-                    self.d |= 0x04;
-                    self.m = 2;
+                    self.set(Reg::D, 2);
                 }
                 ExtOpcode::SET2E => {
-                    self.e |= 0x04;
-                    self.m = 2;
+                    self.set(Reg::E, 2);
                 }
                 ExtOpcode::SET2H => {
-                    self.h |= 0x04;
-                    self.m = 2;
+                    self.set(Reg::H, 2);
                 }
                 ExtOpcode::SET2L => {
-                    self.l |= 0x04;
-                    self.m = 2;
+                    self.set(Reg::L, 2);
                 }
                 ExtOpcode::SET2_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value | 0x04);
+                    mmu.write_byte(self.hl(), set_bit(2, value));
                     self.m = 4;
                 }
                 ExtOpcode::SET2A => {
-                    self.a |= 0x04;
-                    self.m = 2;
+                    self.set(Reg::A, 2);
                 }
                 ExtOpcode::SET3B => {
-                    self.b |= 0x08;
-                    self.m = 2;
+                    self.set(Reg::B, 3);
                 }
                 ExtOpcode::SET3C => {
-                    self.c |= 0x08;
-                    self.m = 2;
+                    self.set(Reg::C, 3);
                 }
                 ExtOpcode::SET3D => {
-                    self.d |= 0x08;
-                    self.m = 2;
+                    self.set(Reg::D, 3);
                 }
                 ExtOpcode::SET3E => {
-                    self.e |= 0x08;
-                    self.m = 2;
+                    self.set(Reg::E, 3);
                 }
                 ExtOpcode::SET3H => {
-                    self.h |= 0x08;
-                    self.m = 2;
+                    self.set(Reg::H, 3);
                 }
                 ExtOpcode::SET3L => {
-                    self.l |= 0x08;
-                    self.m = 2;
+                    self.set(Reg::L, 3);
                 }
                 ExtOpcode::SET3_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value | 0x08);
+                    mmu.write_byte(self.hl(), set_bit(3, value));
                     self.m = 4;
                 }
                 ExtOpcode::SET3A => {
-                    self.a |= 0x08;
-                    self.m = 2;
+                    self.set(Reg::A, 3);
                 }
                 ExtOpcode::SET4B => {
-                    self.b |= 0x10;
-                    self.m = 2;
+                    self.set(Reg::B, 4);
                 }
                 ExtOpcode::SET4C => {
-                    self.c |= 0x10;
-                    self.m = 2;
+                    self.set(Reg::C, 4);
                 }
                 ExtOpcode::SET4D => {
-                    self.d |= 0x10;
-                    self.m = 2;
+                    self.set(Reg::D, 4);
                 }
                 ExtOpcode::SET4E => {
-                    self.e |= 0x10;
-                    self.m = 2;
+                    self.set(Reg::E, 4);
                 }
                 ExtOpcode::SET4H => {
-                    self.h |= 0x10;
-                    self.m = 2;
+                    self.set(Reg::H, 4);
                 }
                 ExtOpcode::SET4L => {
-                    self.l |= 0x10;
-                    self.m = 2;
+                    self.set(Reg::L, 4);
                 }
                 ExtOpcode::SET4_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value | 0x10);
+                    mmu.write_byte(self.hl(), set_bit(4, value));
                     self.m = 4;
                 }
                 ExtOpcode::SET4A => {
-                    self.a |= 0x10;
-                    self.m = 2;
+                    self.set(Reg::A, 4);
                 }
                 ExtOpcode::SET5B => {
-                    self.b |= 0x20;
-                    self.m = 2;
+                    self.set(Reg::B, 5);
                 }
                 ExtOpcode::SET5C => {
-                    self.c |= 0x20;
-                    self.m = 2;
+                    self.set(Reg::C, 5);
                 }
                 ExtOpcode::SET5D => {
-                    self.d |= 0x20;
-                    self.m = 2;
+                    self.set(Reg::D, 5);
                 }
                 ExtOpcode::SET5E => {
-                    self.e |= 0x20;
-                    self.m = 2;
+                    self.set(Reg::E, 5);
                 }
                 ExtOpcode::SET5H => {
-                    self.h |= 0x20;
-                    self.m = 2;
+                    self.set(Reg::H, 5);
                 }
                 ExtOpcode::SET5L => {
-                    self.l |= 0x20;
-                    self.m = 2;
+                    self.set(Reg::L, 5);
                 }
                 ExtOpcode::SET5_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value | 0x20);
+                    mmu.write_byte(self.hl(), set_bit(5, value));
                     self.m = 4;
                 }
                 ExtOpcode::SET5A => {
-                    self.a |= 0x20;
-                    self.m = 2;
+                    self.set(Reg::A, 5);
                 }
                 ExtOpcode::SET6B => {
-                    self.b |= 0x40;
-                    self.m = 2;
+                    self.set(Reg::B, 6);
                 }
                 ExtOpcode::SET6C => {
-                    self.c |= 0x40;
-                    self.m = 2;
+                    self.set(Reg::C, 6);
                 }
                 ExtOpcode::SET6D => {
-                    self.d |= 0x40;
-                    self.m = 2;
+                    self.set(Reg::D, 6);
                 }
                 ExtOpcode::SET6E => {
-                    self.e |= 0x40;
-                    self.m = 2;
+                    self.set(Reg::E, 6);
                 }
                 ExtOpcode::SET6H => {
-                    self.h |= 0x40;
-                    self.m = 2;
+                    self.set(Reg::H, 6);
                 }
                 ExtOpcode::SET6L => {
-                    self.l |= 0x40;
-                    self.m = 2;
+                    self.set(Reg::L, 6);
                 }
                 ExtOpcode::SET6_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value | 0x40);
+                    mmu.write_byte(self.hl(), set_bit(6, value));
                     self.m = 4;
                 }
                 ExtOpcode::SET6A => {
-                    self.a |= 0x40;
-                    self.m = 2;
+                    self.set(Reg::A, 6);
                 }
                 ExtOpcode::SET7B => {
-                    self.b |= 0x80;
-                    self.m = 2;
+                    self.set(Reg::B, 7);
                 }
                 ExtOpcode::SET7C => {
-                    self.c |= 0x80;
-                    self.m = 2;
+                    self.set(Reg::C, 7);
                 }
                 ExtOpcode::SET7D => {
-                    self.d |= 0x80;
-                    self.m = 2;
+                    self.set(Reg::D, 7);
                 }
                 ExtOpcode::SET7E => {
-                    self.e |= 0x80;
-                    self.m = 2;
+                    self.set(Reg::E, 7);
                 }
                 ExtOpcode::SET7H => {
-                    self.h |= 0x80;
-                    self.m = 2;
+                    self.set(Reg::H, 7);
                 }
                 ExtOpcode::SET7L => {
-                    self.l |= 0x80;
-                    self.m = 2;
+                    self.set(Reg::L, 7);
                 }
                 ExtOpcode::SET7_HL_ => {
                     let value = mmu.read_byte(self.hl());
-                    mmu.write_byte(self.hl(), value | 0x80);
+                    mmu.write_byte(self.hl(), set_bit(7, value));
                     self.m = 4;
                 }
                 ExtOpcode::SET7A => {
-                    self.a |= 0x80;
-                    self.m = 2;
+                    self.set(Reg::A, 7);
                 }
             },
             None => {
@@ -3353,34 +2269,458 @@ impl CPU {
         self.clock.m.wrapping_add(self.m as u32);
         Ok(())
     }
-}
 
-fn test_bit(b: u8, n: u8) -> u8 {
-    (n & (1 << b)) >> b
-}
+    fn bc(&self) -> u16 {
+        ((self.b as u16) << 8) + self.c as u16
+    }
 
-fn check_half_carry_8(a: u8, b: u8) -> bool {
-    ((a.wrapping_add(b)) ^ b ^ a) & 0x10 == 0x10
-}
+    fn de(&self) -> u16 {
+        ((self.d as u16) << 8) + self.e as u16
+    }
 
-fn check_half_carry_16(a: u16, b: u16) -> bool {
-    ((a.wrapping_add(b)) ^ b ^ a) & 0x1000 == 0x1000
-}
+    fn hl(&self) -> u16 {
+        ((self.h as u16) << 8) + self.l as u16
+    }
 
-fn check_carry_8(a: u8, b: u8) -> bool {
-    a.wrapping_add(b) < a
-}
+    fn test_flag(&self, flag: Flag) -> u8 {
+        match flag {
+            Flag::Z => (self.f & 0x80) >> 7,
+            Flag::N => (self.f & 0x40) >> 6,
+            Flag::H => (self.f & 0x20) >> 5,
+            Flag::C => (self.f & 0x10) >> 4,
+        }
+    }
 
-fn check_carry_16(a: u16, b: u16) -> bool {
-    a.wrapping_add(b) < a
-}
+    fn set_flag(&mut self, flag: Flag) {
+        match flag {
+            Flag::Z => self.f |= 0x80,
+            Flag::N => self.f |= 0x40,
+            Flag::H => self.f |= 0x20,
+            Flag::C => self.f |= 0x10,
+        }
+    }
 
-fn check_half_borrow_8(a: u8, b: u8) -> bool {
-    ((a.wrapping_sub(b)) ^ b ^ a) & 0x10 == 0x10
-}
+    fn reset_flag(&mut self, flag: Flag) {
+        match flag {
+            Flag::Z => self.f &= 0x7f,
+            Flag::N => self.f &= 0xbf,
+            Flag::H => self.f &= 0xdf,
+            Flag::C => self.f &= 0xef,
+        }
+    }
 
-fn check_borrow_8(a: u8, b: u8) -> bool {
-    a < b
+    fn restore(&mut self, copy: CPU) {
+        self.a = copy.a;
+        self.f = copy.f;
+        self.b = copy.b;
+        self.c = copy.c;
+        self.d = copy.d;
+        self.e = copy.e;
+        self.h = copy.h;
+        self.l = copy.l;
+    }
+
+    fn get_reg(&self, reg: Reg) -> u8 {
+        match reg {
+            Reg::A => self.a,
+            Reg::B => self.b,
+            Reg::C => self.c,
+            Reg::D => self.d,
+            Reg::E => self.e,
+            Reg::H => self.h,
+            Reg::L => self.l,
+        }
+    }
+
+    fn set_reg(&mut self, reg: Reg, value: u8) {
+        match reg {
+            Reg::A => self.a = value,
+            Reg::B => self.b = value,
+            Reg::C => self.c = value,
+            Reg::D => self.d = value,
+            Reg::E => self.e = value,
+            Reg::H => self.h = value,
+            Reg::L => self.l = value,
+        }
+    }
+
+    fn add(&mut self, value: u8) {
+        self.f = 0;
+        if check_half_carry_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_carry_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        self.a = self.a.wrapping_add(value);
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn adc(&mut self, value: u8) {
+        let carry = self.test_flag(Flag::C);
+        self.f = 0;
+        let value = value.wrapping_add(carry);
+        self.reset_flag(Flag::N);
+        if check_half_carry_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_carry_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        self.a = self.a.wrapping_add(value);
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn sub(&mut self, value: u8) {
+        self.f = 0;
+        self.set_flag(Flag::N);
+        if check_half_borrow_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_borrow_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        self.a = self.a.wrapping_sub(value);
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn sbc(&mut self, value: u8) {
+        let carry = self.test_flag(Flag::C);
+        self.f = 0;
+        let value = value.wrapping_add(carry);
+        self.set_flag(Flag::N);
+        if check_half_borrow_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_borrow_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        self.a = self.a.wrapping_sub(value);
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn and(&mut self, value: u8) {
+        self.f = 0;
+        self.set_flag(Flag::H);
+        self.a &= value;
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn xor(&mut self, value: u8) {
+        self.f = 0;
+        self.a ^= value;
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn or(&mut self, value: u8) {
+        self.f = 0;
+        self.a |= value;
+        if self.a == 0 {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn cmp(&mut self, value: u8) {
+        self.f = 0;
+        self.set_flag(Flag::N);
+        if check_half_borrow_8(self.a, value) {
+            self.set_flag(Flag::H);
+        }
+        if check_borrow_8(self.a, value) {
+            self.set_flag(Flag::C);
+        }
+        if self.a == value {
+            self.set_flag(Flag::Z);
+        }
+        self.m = 1;
+    }
+
+    fn inc_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        if check_half_carry_8(value, 1) {
+            self.set_flag(Flag::H);
+        }
+        let value = value.wrapping_add(1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn inc(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.inc_val(value);
+        self.set_reg(reg, value);
+        self.m = 1;
+    }
+
+    fn dec_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        self.set_flag(Flag::N);
+        if check_half_borrow_8(value, 1) {
+            self.set_flag(Flag::H);
+        }
+        let value = value.wrapping_sub(1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn dec(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.dec_val(value);
+        self.set_reg(reg, value);
+        self.m = 1;
+    }
+
+    fn rlc_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b7 = (value & 0x80) >> 7;
+        if b7 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        let value = value.rotate_left(1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn rlc(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.rlc_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn rrc_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b0 = value & 0x1;
+        if b0 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        let value = value.rotate_right(1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn rrc(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.rrc_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn rl_val(&mut self, value: u8) -> u8 {
+        let carry = self.test_flag(Flag::C);
+        self.f = 0;
+        let b7 = (value & 0x80) >> 7;
+        let value = (value << 1) | carry;
+        if b7 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn rl(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.rl_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn rr_val(&mut self, value: u8) -> u8 {
+        let carry = self.test_flag(Flag::C);
+        self.f = 0;
+        let b0 = value & 0x1;
+        let value = (value >> 1) | (carry << 7);
+        if b0 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn rr(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.rr_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn sla_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b7 = (value & 0x80) >> 7;
+        if b7 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        let value = value << 1;
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn sla(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.sla_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn sra_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let msb = value & 0x80;
+        let b0 = value & 0x1;
+        if b0 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        let value = msb + (value >> 1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn sra(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.sra_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn swap_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let upper = value >> 4;
+        let lower = value & 0xf;
+        let value = (lower << 4) + upper;
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn swap(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.swap_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn srl_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b0 = value & 0x1;
+        if b0 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        let value = value >> 1;
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn srl(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.srl_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn bit_val(&mut self, value: u8, bit: u8) {
+        self.f = 0;
+        self.set_flag(Flag::H);
+        if test_bit(bit, value) == 0 {
+            self.set_flag(Flag::Z);
+        }
+    }
+
+    fn bit(&mut self, reg: Reg, bit: u8) {
+        let value = self.get_reg(reg);
+        self.bit_val(value, bit);
+        self.m = 2;
+    }
+
+    fn res(&mut self, reg: Reg, bit: u8) {
+        let mut value = self.get_reg(reg);
+        value = reset_bit(bit, value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn set(&mut self, reg: Reg, bit: u8) {
+        let mut value = self.get_reg(reg);
+        value = set_bit(bit, value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn call(&mut self, cond: Option<Condition>, mmu: &mut MMU) {
+        self.m = 3;
+        if let Some(c) = cond {
+            let should_call = match c {
+                Condition::Z => self.test_flag(Flag::Z) == 1,
+                Condition::NZ => self.test_flag(Flag::Z) == 0,
+                Condition::C => self.test_flag(Flag::C) == 1,
+                Condition::NC => self.test_flag(Flag::C) == 0,
+            };
+            if should_call {
+                self.do_call(mmu);
+            } else {
+                self.pc = self.pc.wrapping_add(2);
+            }
+        } else {
+            self.do_call(mmu);
+        }
+    }
+
+    fn do_call(&mut self, mmu: &mut MMU) {
+        self.sp = self.sp.wrapping_sub(2);
+        mmu.write_word(self.sp, self.pc.wrapping_add(2));
+        self.pc = mmu.read_word(self.pc);
+        self.m += 3;
+    }
 }
 
 #[cfg(test)]
@@ -3421,42 +2761,6 @@ mod tests {
     }
 
     #[test]
-    fn test_check_half_carry_8() {
-        assert!(check_half_carry_8(0xf, 0x1));
-        assert!(!check_half_carry_8(0xf, 0x0));
-    }
-
-    #[test]
-    fn test_check_half_carry_16() {
-        assert!(check_half_carry_16(0xfff, 0x1));
-        assert!(!check_half_carry_16(0xfff, 0x0));
-    }
-
-    #[test]
-    fn test_check_carry_8() {
-        assert!(check_carry_8(0xff, 0x1));
-        assert!(!check_carry_8(0xfe, 0x1))
-    }
-
-    #[test]
-    fn test_check_carry_16() {
-        assert!(check_carry_16(0xffff, 0x1));
-        assert!(!check_carry_16(0xfffe, 0x1));
-    }
-
-    #[test]
-    fn test_check_half_borrow_8() {
-        assert!(check_half_borrow_8(0x10, 0xf));
-        assert!(!check_half_borrow_8(0xff, 0x1));
-    }
-
-    #[test]
-    fn test_check_borrow_8() {
-        assert!(check_borrow_8(0x1, 0x2));
-        assert!(!check_borrow_8(0xff, 0x1));
-    }
-
-    #[test]
     fn test_bc() {
         let mut cpu = CPU::new();
         cpu.b = 0xf2;
@@ -3480,17 +2784,413 @@ mod tests {
         assert_eq!(cpu.hl(), 0xf2a3);
     }
 
+    fn assert_flags_eq(cpu: &CPU, z: u8, n: u8, h: u8, c: u8) {
+        assert_eq!(cpu.test_flag(Flag::Z), z);
+        assert_eq!(cpu.test_flag(Flag::N), n);
+        assert_eq!(cpu.test_flag(Flag::H), h);
+        assert_eq!(cpu.test_flag(Flag::C), c);
+    }
+
+    fn registers() -> Vec<Reg> {
+        vec![Reg::A, Reg::B, Reg::C, Reg::D, Reg::E, Reg::H, Reg::L]
+    }
+
     #[test]
-    fn test_incb() {
+    fn test_add() {
         let mut cpu = CPU::new();
-        cpu.b = 0xff;
-        cpu.set_flag(Flag::N);
-        cpu.exec(&mut mmu_stub(Opcode::INCB as u8, 0, 0))
-            .expect("CPU exec failed");
-        assert_eq!(cpu.b, 0);
-        assert_eq!(cpu.test_flag(Flag::Z), 1);
-        assert_eq!(cpu.test_flag(Flag::N), 0);
-        assert_eq!(cpu.test_flag(Flag::H), 1);
+        cpu.a = 0;
+        cpu.add(0x1f);
+        assert_eq!(cpu.a, 0x1f);
+        assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+        cpu.add(0xe1);
+        assert_eq!(cpu.a, 0);
+        assert_flags_eq(&cpu, 1, 0, 1, 1);
+    }
+
+    #[test]
+    fn test_adc() {
+        let mut cpu = CPU::new();
+        cpu.a = 0;
+        cpu.set_flag(Flag::C);
+
+        cpu.adc(0x1e);
+        assert_eq!(cpu.a, 0x1f);
+        assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+        cpu.set_flag(Flag::C);
+        cpu.adc(0xe0);
+        assert_eq!(cpu.a, 0);
+        assert_flags_eq(&cpu, 1, 0, 1, 1);
+    }
+
+    #[test]
+    fn test_sub() {
+        let mut cpu = CPU::new();
+        cpu.a = 0xff;
+        cpu.sub(0x1f);
+        assert_eq!(cpu.a, 0xe0);
+        assert_flags_eq(&cpu, 0, 1, 0, 0);
+
+        cpu.sub(0xe0);
+        assert_eq!(cpu.a, 0);
+        assert_flags_eq(&cpu, 1, 1, 0, 0);
+
+        cpu.a = 0x1f;
+        cpu.sub(0xff);
+        assert_eq!(cpu.a, 0x20);
+        assert_flags_eq(&cpu, 0, 1, 0, 1);
+
+        cpu.a = 0x10;
+        cpu.sub(0xf);
+        assert_eq!(cpu.a, 1);
+        assert_flags_eq(&cpu, 0, 1, 1, 0);
+    }
+
+    #[test]
+    fn test_sbc() {
+        let mut cpu = CPU::new();
+        cpu.a = 0xff;
+        cpu.set_flag(Flag::C);
+        cpu.sbc(0x1e);
+        assert_eq!(cpu.a, 0xe0);
+        assert_flags_eq(&cpu, 0, 1, 0, 0);
+
+        cpu.set_flag(Flag::C);
+        cpu.sbc(0xdf);
+        assert_eq!(cpu.a, 0);
+        assert_flags_eq(&cpu, 1, 1, 0, 0);
+
+        cpu.a = 0x1f;
+        cpu.set_flag(Flag::C);
+        cpu.sbc(0xfe);
+        assert_eq!(cpu.a, 0x20);
+        assert_flags_eq(&cpu, 0, 1, 0, 1);
+
+        cpu.a = 0x10;
+        cpu.set_flag(Flag::C);
+        cpu.sbc(0xe);
+        assert_eq!(cpu.a, 1);
+        assert_flags_eq(&cpu, 0, 1, 1, 0);
+    }
+
+    #[test]
+    fn test_and() {
+        let mut cpu = CPU::new();
+        cpu.a = 0xff;
+
+        cpu.and(0);
+        assert_eq!(cpu.a, 0);
+        assert_flags_eq(&cpu, 1, 0, 1, 0);
+
+        cpu.a = 0xff;
+        cpu.and(0xf0);
+        assert_eq!(cpu.a, 0xf0);
+        assert_flags_eq(&cpu, 0, 0, 1, 0);
+    }
+
+    #[test]
+    fn test_or() {
+        let mut cpu = CPU::new();
+        cpu.a = 0xff;
+
+        cpu.or(0);
+        assert_eq!(cpu.a, 0xff);
+        assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+        cpu.a = 0xf0;
+        cpu.or(0xf);
+        assert_eq!(cpu.a, 0xff);
+        assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+        cpu.a = 0x0;
+        cpu.or(0x0);
+        assert_eq!(cpu.a, 0x0);
+        assert_flags_eq(&cpu, 1, 0, 0, 0);
+    }
+
+    #[test]
+    fn test_xor() {
+        let mut cpu = CPU::new();
+        cpu.a = 0xff;
+
+        cpu.xor(0xf0);
+        assert_eq!(cpu.a, 0xf);
+        assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+        cpu.a = 0xff;
+        cpu.xor(0xff);
+        assert_eq!(cpu.a, 0);
+        assert_flags_eq(&cpu, 1, 0, 0, 0);
+    }
+
+    #[test]
+    fn test_cmp() {
+        let mut cpu = CPU::new();
+        cpu.a = 0xff;
+
+        cpu.cmp(0xe0);
+        assert_eq!(cpu.a, 0xff);
+        assert_flags_eq(&cpu, 0, 1, 0, 0);
+
+        cpu.cmp(0xff);
+        assert_eq!(cpu.a, 0xff);
+        assert_flags_eq(&cpu, 1, 1, 0, 0);
+
+        cpu.a = 0x10;
+        cpu.cmp(0xff);
+        assert_eq!(cpu.a, 0x10);
+        assert_flags_eq(&cpu, 0, 1, 1, 1);
+    }
+
+    #[test]
+    fn test_inc() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+            cpu.set_reg(r, 0xf);
+            cpu.inc(r);
+            assert_eq!(cpu.get_reg(r), 0x10);
+            assert_flags_eq(&cpu, 0, 0, 1, 0);
+
+            cpu.set_reg(r, 0xff);
+            cpu.inc(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 1, 0);
+        }
+    }
+
+    #[test]
+    fn test_dec() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+            cpu.set_reg(r, 0x10);
+            cpu.dec(r);
+            assert_eq!(cpu.get_reg(r), 0xf);
+            assert_flags_eq(&cpu, 0, 1, 1, 0);
+
+            cpu.set_reg(r, 1);
+            cpu.dec(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 1, 0, 0);
+        }
+    }
+
+    #[test]
+    fn test_rlc() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+
+            cpu.set_reg(r, 0b1000_1000);
+            cpu.rlc(r);
+            assert_eq!(cpu.get_reg(r), 0b0001_0001);
+            assert_flags_eq(&cpu, 0, 0, 0, 1);
+
+            cpu.set_reg(r, 0);
+            cpu.rlc(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 0, 0);
+        }
+    }
+
+    #[test]
+    fn test_rrc() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+
+            cpu.set_reg(r, 0b0001_0001);
+            cpu.rrc(r);
+            assert_eq!(cpu.get_reg(r), 0b1000_1000);
+            assert_flags_eq(&cpu, 0, 0, 0, 1);
+
+            cpu.set_reg(r, 0);
+            cpu.rrc(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 0, 0);
+        }
+    }
+
+    #[test]
+    fn test_rl() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+
+            cpu.set_reg(r, 0b1000_1000);
+            cpu.rl(r);
+            assert_eq!(cpu.get_reg(r), 0b0001_0000);
+            assert_flags_eq(&cpu, 0, 0, 0, 1);
+
+            cpu.set_reg(r, 0b0000_1000);
+            cpu.set_flag(Flag::C);
+            cpu.rl(r);
+            assert_eq!(cpu.get_reg(r), 0b0001_0001);
+            assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+            cpu.set_reg(r, 0);
+            cpu.reset_flag(Flag::C);
+            cpu.rl(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 0, 0);
+
+            cpu.set_reg(r, 0);
+            cpu.set_flag(Flag::C);
+            cpu.rl(r);
+            assert_eq!(cpu.get_reg(r), 1);
+            assert_flags_eq(&cpu, 0, 0, 0, 0)
+        }
+    }
+
+    #[test]
+    fn test_rr() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+
+            cpu.set_reg(r, 0b1000_1001);
+            cpu.rr(r);
+            assert_eq!(cpu.get_reg(r), 0b0100_0100);
+            assert_flags_eq(&cpu, 0, 0, 0, 1);
+
+            cpu.set_reg(r, 0b0010_0000);
+            cpu.set_flag(Flag::C);
+            cpu.rr(r);
+            assert_eq!(cpu.get_reg(r), 0b1001_0000);
+            assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+            cpu.set_reg(r, 0);
+            cpu.reset_flag(Flag::C);
+            cpu.rr(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 0, 0);
+
+            cpu.set_reg(r, 0x80);
+            cpu.set_flag(Flag::C);
+            cpu.rr(r);
+            assert_eq!(cpu.get_reg(r), 0xc0);
+            assert_flags_eq(&cpu, 0, 0, 0, 0)
+        }
+    }
+
+    #[test]
+    fn test_sla() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+
+            cpu.set_reg(r, 0b1000_1001);
+            cpu.sla(r);
+            assert_eq!(cpu.get_reg(r), 0b0001_0010);
+            assert_flags_eq(&cpu, 0, 0, 0, 1);
+
+            cpu.set_reg(r, 0);
+            cpu.sla(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 0, 0);
+        }
+    }
+
+    #[test]
+    fn test_sra() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+
+            cpu.set_reg(r, 0b1000_1001);
+            cpu.sra(r);
+            assert_eq!(cpu.get_reg(r), 0b1100_0100);
+            assert_flags_eq(&cpu, 0, 0, 0, 1);
+
+            cpu.set_reg(r, 0);
+            cpu.sra(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 0, 0);
+        }
+    }
+
+    #[test]
+    fn test_swap() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+
+            cpu.set_reg(r, 0x12);
+            cpu.swap(r);
+            assert_eq!(cpu.get_reg(r), 0x21);
+            assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+            cpu.set_reg(r, 0xf);
+            cpu.swap(r);
+            assert_eq!(cpu.get_reg(r), 0xf0);
+            assert_flags_eq(&cpu, 0, 0, 0, 0);
+
+            cpu.set_reg(r, 0);
+            cpu.swap(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 0, 0);
+        }
+    }
+
+    #[test]
+    fn test_srl() {
+        for r in registers().into_iter() {
+            let mut cpu = CPU::new();
+
+            cpu.set_reg(r, 0b1000_1001);
+            cpu.srl(r);
+            assert_eq!(cpu.get_reg(r), 0b0100_0100);
+            assert_flags_eq(&cpu, 0, 0, 0, 1);
+
+            cpu.set_reg(r, 0);
+            cpu.srl(r);
+            assert_eq!(cpu.get_reg(r), 0);
+            assert_flags_eq(&cpu, 1, 0, 0, 0);
+        }
+    }
+
+    #[test]
+    fn test_bit() {
+        for r in registers().into_iter() {
+            for b in 0..8 {
+                let mut cpu = CPU::new();
+
+                cpu.set_reg(r, 0);
+                cpu.bit(r, b);
+                assert_flags_eq(&cpu, 1, 0, 1, 0);
+
+                cpu.set_reg(r, 1 << b);
+                cpu.bit(r, b);
+                assert_flags_eq(&cpu, 0, 0, 1, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_res() {
+        for r in registers().into_iter() {
+            for b in 0..8 {
+                let mut cpu = CPU::new();
+
+                cpu.set_reg(r, 0xff);
+                cpu.res(r, b);
+                assert_eq!(cpu.get_reg(r), 0xff ^ (1 << b));
+
+                cpu.set_reg(r, 0);
+                cpu.res(r, b);
+                assert_eq!(cpu.get_reg(r), 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_set() {
+        for r in registers().into_iter() {
+            for b in 0..8 {
+                let mut cpu = CPU::new();
+
+                cpu.set_reg(r, 0);
+                cpu.set(r, b);
+                assert_eq!(cpu.get_reg(r), (1 << b));
+
+                cpu.set_reg(r, 0xff);
+                cpu.set(r, b);
+                assert_eq!(cpu.get_reg(r), 0xff);
+            }
+        }
     }
 
     #[test]
@@ -3528,20 +3228,6 @@ mod tests {
             cpu_exec(&mut cpu, *op, *val, 0);
             assert_eq!(cpu.a, *val);
         }
-    }
-
-    #[test]
-    fn test_rlca() {
-        let mut cpu = CPU::new();
-        cpu.a = 0b1000_0000;
-        cpu.set_flag(Flag::N);
-        cpu.set_flag(Flag::H);
-        cpu.exec(&mut mmu_stub(Opcode::RLCA as u8, 0, 0))
-            .expect("CPU exec failed");
-        assert_eq!(cpu.a, 0b0000_0001);
-        assert_eq!(cpu.test_flag(Flag::N), 0);
-        assert_eq!(cpu.test_flag(Flag::H), 0);
-        assert_eq!(cpu.test_flag(Flag::C), 1);
     }
 
     #[test]
