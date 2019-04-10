@@ -284,18 +284,153 @@ impl CPU {
         self.m = 1;
     }
 
-    fn inc(&mut self, reg: Reg) {
+    fn inc_val(&mut self, value: u8) -> u8 {
         self.f = 0;
-        let mut value = self.get_reg(reg);
         if check_half_carry_8(value, 1) {
             self.set_flag(Flag::H);
         }
-        value = value.wrapping_add(1);
+        let value = value.wrapping_add(1);
         if value == 0 {
             self.set_flag(Flag::Z);
         }
+        value
+    }
+
+    fn inc(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.inc_val(value);
         self.set_reg(reg, value);
         self.m = 1;
+    }
+
+    fn dec_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        self.set_flag(Flag::N);
+        if check_half_borrow_8(value, 1) {
+            self.set_flag(Flag::H);
+        }
+        let value = value.wrapping_sub(1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn dec(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.dec_val(value);
+        self.set_reg(reg, value);
+        self.m = 1;
+    }
+
+    fn rlc_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b7 = (value & 0x80) >> 7;
+        if b7 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        let value = value.rotate_left(1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn rlc(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.rlc_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn rrc_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b0 = value & 0x1;
+        if b0 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        let value = value.rotate_right(1);
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn rrc(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.rrc_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn rl_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b7 = (value & 0x80) >> 7;
+        let value = (value << 1) | self.test_flag(Flag::C);
+        if b7 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn rl(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.rl_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn rr_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b0 = value & 0x1;
+        let value = (value >> 1) | (self.test_flag(Flag::C) << 7);
+        if b0 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn rr(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.rr_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
+    }
+
+    fn sla_val(&mut self, value: u8) -> u8 {
+        self.f = 0;
+        let b7 = (value & 0x80) >> 7;
+        if b7 == 1 {
+            self.set_flag(Flag::C);
+        } else {
+            self.reset_flag(Flag::C);
+        }
+        let value = value << 1;
+        if value == 0 {
+            self.set_flag(Flag::Z);
+        }
+        value
+    }
+
+    fn sla(&mut self, reg: Reg) {
+        let mut value = self.get_reg(reg);
+        value = self.sla_val(value);
+        self.set_reg(reg, value);
+        self.m = 2;
     }
 
     pub fn handle_interrupt(&mut self, iflag: IntFlag, mmu: &mut MMU) {
@@ -343,18 +478,7 @@ impl CPU {
                     self.inc(Reg::B);
                 }
                 Opcode::DECB => {
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.b, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.b = self.b.wrapping_sub(1);
-                    if self.b == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.dec(Reg::B);
                 }
                 Opcode::LDBn => {
                     self.b = mmu.read_byte(self.pc);
@@ -362,18 +486,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RLCA => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (self.a & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    self.a = self.a.rotate_left(1);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
+                    self.rlc(Reg::A);
                     self.m = 1;
                 }
                 Opcode::LD_nn_SP => {
@@ -410,32 +523,10 @@ impl CPU {
                     self.m = 2; //jsGB has 1?
                 }
                 Opcode::INCC => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.c, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.c = self.c.wrapping_add(1);
-                    if self.c == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.inc(Reg::C);
                 }
                 Opcode::DECC => {
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.c, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.c = self.c.wrapping_sub(1);
-                    if self.c == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.dec(Reg::C);
                 }
                 Opcode::LDCn => {
                     self.c = mmu.read_byte(self.pc);
@@ -443,18 +534,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RRCA => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = self.a & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    self.a = self.a.rotate_right(1);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
+                    self.rrc(Reg::A);
                     self.m = 1;
                 }
                 Opcode::STOP => {
@@ -482,32 +562,10 @@ impl CPU {
                     self.m = 2; //jsGB has 1?
                 }
                 Opcode::INCD => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.d, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.d = self.d.wrapping_add(1);
-                    if self.d == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.inc(Reg::D);
                 }
                 Opcode::DECD => {
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.d, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.d = self.d.wrapping_sub(1);
-                    if self.d == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.dec(Reg::D);
                 }
                 Opcode::LDDn => {
                     self.d = mmu.read_byte(self.pc);
@@ -515,18 +573,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RLA => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (self.a & 0x80) >> 7;
-                    self.a = (self.a << 1) + self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
+                    self.rl(Reg::A);
                     self.m = 1;
                 }
                 Opcode::JRn => {
@@ -566,32 +613,10 @@ impl CPU {
                     self.m = 2; //jsGB has 1?
                 }
                 Opcode::INCE => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.e, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.e = self.e.wrapping_add(1);
-                    if self.e == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.inc(Reg::E);
                 }
                 Opcode::DECE => {
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.e, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.e = self.e.wrapping_sub(1);
-                    if self.e == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.dec(Reg::E);
                 }
                 Opcode::LDEn => {
                     self.e = mmu.read_byte(self.pc);
@@ -599,18 +624,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RRA => {
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = self.a & 0x1;
-                    self.a = (self.a >> 1) + (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    }
+                    self.rr(Reg::A);
                     self.m = 1;
                 }
                 Opcode::JRNZn => {
@@ -648,32 +662,10 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::INCH => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.h, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.h = self.h.wrapping_add(1);
-                    if self.h == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.inc(Reg::H);
                 }
                 Opcode::DECH => {
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.h, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.h = self.h.wrapping_sub(1);
-                    if self.h == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.dec(Reg::H);
                 }
                 Opcode::LDHn => {
                     self.h = mmu.read_byte(self.pc);
@@ -740,32 +732,10 @@ impl CPU {
                     self.m = 2; //jsGB has 1?
                 }
                 Opcode::INCL => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.l, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.l = self.l.wrapping_add(1);
-                    if self.l == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.inc(Reg::L);
                 }
                 Opcode::DECL => {
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.l, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.l = self.l.wrapping_sub(1);
-                    if self.l == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.dec(Reg::L);
                 }
                 Opcode::LDLn => {
                     self.l = mmu.read_byte(self.pc);
@@ -809,37 +779,17 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::INC_HL_ => {
-                    self.reset_flag(Flag::N);
                     let addr = self.hl();
-                    let mut val = mmu.read_byte(addr);
-                    if check_half_carry_8(val, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    val = val.wrapping_add(1);
-                    if val == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    mmu.write_byte(addr, val);
+                    let mut value = mmu.read_byte(addr);
+                    value = self.inc_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 3;
                 }
                 Opcode::DEC_HL_ => {
-                    self.set_flag(Flag::N);
                     let addr = self.hl();
-                    let mut val = mmu.read_byte(addr);
-                    if check_half_borrow_8(val, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    val = val.wrapping_sub(1);
-                    if val == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    mmu.write_byte(addr, val);
+                    let mut value = mmu.read_byte(addr);
+                    value = self.dec_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 3;
                 }
                 Opcode::LD_HL_n => {
@@ -894,32 +844,10 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::INCA => {
-                    self.reset_flag(Flag::N);
-                    if check_half_carry_8(self.a, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.a = self.a.wrapping_add(1);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.inc(Reg::A);
                 }
                 Opcode::DECA => {
-                    self.set_flag(Flag::N);
-                    if check_half_borrow_8(self.a, 1) {
-                        self.set_flag(Flag::H);
-                    }
-                    self.a = self.a.wrapping_sub(1);
-                    if self.a == 0 {
-                        self.set_flag(Flag::Z);
-                    } else {
-                        self.reset_flag(Flag::Z);
-                    }
-
-                    self.m = 1;
+                    self.dec(Reg::A);
                 }
                 Opcode::LDAn => {
                     self.a = mmu.read_byte(self.pc);
@@ -927,6 +855,8 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::CCF => {
+                    self.reset_flag(Flag::N);
+                    self.reset_flag(Flag::H);
                     if self.test_flag(Flag::C) == 1 {
                         self.reset_flag(Flag::C);
                     } else {
@@ -1843,684 +1773,144 @@ impl CPU {
         match ExtOpcode::from_u8(mmu.read_byte(pc)) {
             Some(op) => match op {
                 ExtOpcode::RLCB => {
-                    let mut value = self.b;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_left(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.b = value;
-                    self.m = 2;
+                    self.rlc(Reg::B);
                 }
                 ExtOpcode::RLCC => {
-                    let mut value = self.c;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_left(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.c = value;
-                    self.m = 2;
+                    self.rlc(Reg::C);
                 }
                 ExtOpcode::RLCD => {
-                    let mut value = self.d;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_left(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.d = value;
-                    self.m = 2;
+                    self.rlc(Reg::D);
                 }
                 ExtOpcode::RLCE => {
-                    let mut value = self.e;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_left(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.e = value;
-                    self.m = 2;
+                    self.rlc(Reg::E);
                 }
                 ExtOpcode::RLCH => {
-                    let mut value = self.h;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_left(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.h = value;
-                    self.m = 2;
+                    self.rlc(Reg::H);
                 }
                 ExtOpcode::RLCL => {
-                    let mut value = self.l;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_left(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.l = value;
-                    self.m = 2;
+                    self.rlc(Reg::H);
                 }
                 ExtOpcode::RLC_HL_ => {
-                    let mut value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_left(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    mmu.write_byte(self.hl(), value);
+                    let addr = self.hl();
+                    let mut value = mmu.read_byte(addr);
+                    value = self.rlc_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 4;
                 }
                 ExtOpcode::RLCA => {
-                    let mut value = self.a;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_left(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.a = value;
-                    self.m = 2;
+                    self.rlc(Reg::A);
                 }
                 ExtOpcode::RRCB => {
-                    let mut value = self.b;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_right(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.b = value;
-                    self.m = 2;
+                    self.rrc(Reg::B);
                 }
                 ExtOpcode::RRCC => {
-                    let mut value = self.c;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_right(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.c = value;
-                    self.m = 2;
+                    self.rrc(Reg::C);
                 }
                 ExtOpcode::RRCD => {
-                    let mut value = self.d;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_right(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.d = value;
-                    self.m = 2;
+                    self.rrc(Reg::D);
                 }
                 ExtOpcode::RRCE => {
-                    let mut value = self.e;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_right(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.e = value;
-                    self.m = 2;
+                    self.rrc(Reg::E);
                 }
                 ExtOpcode::RRCH => {
-                    let mut value = self.h;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_right(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.h = value;
-                    self.m = 2;
+                    self.rrc(Reg::H);
                 }
                 ExtOpcode::RRCL => {
-                    let mut value = self.l;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_right(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.l = value;
-                    self.m = 2;
+                    self.rrc(Reg::L);
                 }
                 ExtOpcode::RRC_HL_ => {
-                    let mut value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_right(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    mmu.write_byte(self.hl(), value);
+                    let addr = self.hl();
+                    let mut value = mmu.read_byte(addr);
+                    value = self.rrc_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 4;
                 }
                 ExtOpcode::RRCA => {
-                    let mut value = self.a;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value.rotate_right(1);
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.a = value;
-                    self.m = 2;
+                    self.rrc(Reg::A);
                 }
                 ExtOpcode::RLB => {
-                    let mut value = self.b;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    value = (value << 1) | self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.b = value;
-                    self.m = 2;
+                    self.rl(Reg::B);
                 }
                 ExtOpcode::RLC => {
-                    let mut value = self.c;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    value = (value << 1) | self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.c = value;
-                    self.m = 2;
+                    self.rl(Reg::C);
                 }
                 ExtOpcode::RLD => {
-                    let mut value = self.d;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    value = (value << 1) | self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.d = value;
-                    self.m = 2;
+                    self.rl(Reg::D);
                 }
                 ExtOpcode::RLE => {
-                    let mut value = self.e;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    value = (value << 1) | self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.e = value;
-                    self.m = 2;
+                    self.rl(Reg::E);
                 }
                 ExtOpcode::RLH => {
-                    let mut value = self.h;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    value = (value << 1) | self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.h = value;
-                    self.m = 2;
+                    self.rl(Reg::H);
                 }
                 ExtOpcode::RLL => {
-                    let mut value = self.l;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    value = (value << 1) | self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.l = value;
-                    self.m = 2;
+                    self.rl(Reg::L);
                 }
                 ExtOpcode::RL_HL_ => {
-                    let mut value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    value = (value << 1) | self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    mmu.write_byte(self.hl(), value);
+                    let addr = self.hl();
+                    let mut value = mmu.read_byte(addr);
+                    value = self.rl_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 4;
                 }
                 ExtOpcode::RLA => {
-                    let mut value = self.a;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    value = (value << 1) | self.test_flag(Flag::C);
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.a = value;
-                    self.m = 2;
+                    self.rl(Reg::A);
                 }
                 ExtOpcode::RRB => {
-                    let mut value = self.b;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.b = value;
-                    self.m = 2;
+                    self.rr(Reg::B);
                 }
                 ExtOpcode::RRC => {
-                    let mut value = self.c;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.c = value;
-                    self.m = 2;
+                    self.rr(Reg::C);
                 }
                 ExtOpcode::RRD => {
-                    let mut value = self.d;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.d = value;
-                    self.m = 2;
+                    self.rr(Reg::D);
                 }
                 ExtOpcode::RRE => {
-                    let mut value = self.e;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.e = value;
-                    self.m = 2;
+                    self.rr(Reg::E);
                 }
                 ExtOpcode::RRH => {
-                    let mut value = self.h;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.h = value;
-                    self.m = 2;
+                    self.rr(Reg::H);
                 }
                 ExtOpcode::RRL => {
-                    let mut value = self.l;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.l = value;
-                    self.m = 2;
+                    self.rr(Reg::L);
                 }
                 ExtOpcode::RR_HL_ => {
-                    let mut value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    mmu.write_byte(self.hl(), value);
+                    let addr = self.hl();
+                    let mut value = mmu.read_byte(addr);
+                    value = self.rr_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 4;
                 }
                 ExtOpcode::RRA => {
-                    let mut value = self.a;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b0 = value & 0x1;
-                    value = (value >> 1) | (self.test_flag(Flag::C) << 7);
-                    if b0 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.a = value;
-                    self.m = 2;
+                    self.rr(Reg::A);
                 }
                 ExtOpcode::SLAB => {
-                    let mut value = self.b;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value << 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.b = value;
-                    self.m = 2;
+                    self.sla(Reg::B);
                 }
                 ExtOpcode::SLAC => {
-                    let mut value = self.c;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value << 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.c = value;
-                    self.m = 2;
+                    self.sla(Reg::C);
                 }
                 ExtOpcode::SLAD => {
-                    let mut value = self.d;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value << 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.d = value;
-                    self.m = 2;
+                    self.sla(Reg::D);
                 }
                 ExtOpcode::SLAE => {
-                    let mut value = self.e;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value << 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.e = value;
-                    self.m = 2;
+                    self.sla(Reg::E);
                 }
                 ExtOpcode::SLAH => {
-                    let mut value = self.h;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value << 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.h = value;
-                    self.m = 2;
+                    self.sla(Reg::H);
                 }
                 ExtOpcode::SLAL => {
-                    let mut value = self.l;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value << 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.l = value;
-                    self.m = 2;
+                    self.sla(Reg::L);
                 }
                 ExtOpcode::SLA_HL_ => {
-                    let mut value = mmu.read_byte(self.hl());
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value << 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    mmu.write_byte(self.hl(), value);
+                    let addr = self.hl();
+                    let mut value = mmu.read_byte(addr);
+                    value = self.sla_val(value);
+                    mmu.write_byte(addr, value);
                     self.m = 4;
                 }
                 ExtOpcode::SLAA => {
-                    let mut value = self.a;
-                    self.reset_flag(Flag::N);
-                    self.reset_flag(Flag::H);
-                    let b7 = (value & 0x80) >> 7;
-                    if b7 == 1 {
-                        self.set_flag(Flag::C);
-                    } else {
-                        self.reset_flag(Flag::C);
-                    }
-                    value = value << 1;
-                    if value == 0 {
-                        self.set_flag(Flag::Z);
-                    }
-                    self.a = value;
-                    self.m = 2;
+                    self.sla(Reg::A);
                 }
                 ExtOpcode::SRAB => {
                     let mut value = self.b;
