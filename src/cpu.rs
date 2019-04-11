@@ -125,15 +125,8 @@ impl CPU {
         let opcode = Opcode::from_u8(mmu.read_byte(pc));
         match opcode {
             Some(op) => match op {
-                Opcode::NOP => {
-                    self.m = 1;
-                }
-                Opcode::LDBCnn => {
-                    self.c = mmu.read_byte(self.pc);
-                    self.b = mmu.read_byte(self.pc.wrapping_add(1));
-                    self.pc = self.pc.wrapping_add(2);
-                    self.m = 3;
-                }
+                Opcode::NOP => self.m = 1,
+                Opcode::LDBCnn => self.ldrrnn(Reg::B, Reg::C, mmu),
                 Opcode::LD_BC_A => {
                     let addr = self.bc();
                     mmu.write_byte(addr, self.a);
@@ -146,17 +139,9 @@ impl CPU {
                     }
                     self.m = 1;
                 }
-                Opcode::INCB => {
-                    self.inc(Reg::B);
-                }
-                Opcode::DECB => {
-                    self.dec(Reg::B);
-                }
-                Opcode::LDBn => {
-                    self.b = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    self.m = 2;
-                }
+                Opcode::INCB => self.inc(Reg::B),
+                Opcode::DECB => self.dec(Reg::B),
+                Opcode::LDBn => self.ldrn(Reg::B, mmu),
                 Opcode::RLCA => {
                     self.rlc(Reg::A);
                     self.m = 1;
@@ -194,17 +179,9 @@ impl CPU {
                     }
                     self.m = 2; //jsGB has 1?
                 }
-                Opcode::INCC => {
-                    self.inc(Reg::C);
-                }
-                Opcode::DECC => {
-                    self.dec(Reg::C);
-                }
-                Opcode::LDCn => {
-                    self.c = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    self.m = 2;
-                }
+                Opcode::INCC => self.inc(Reg::C),
+                Opcode::DECC => self.dec(Reg::C),
+                Opcode::LDCn => self.ldrn(Reg::C, mmu),
                 Opcode::RRCA => {
                     self.rrc(Reg::A);
                     self.m = 1;
@@ -216,12 +193,7 @@ impl CPU {
                         self.m = 1;
                     }
                 }
-                Opcode::LDDEnn => {
-                    self.e = mmu.read_byte(self.pc);
-                    self.d = mmu.read_byte(self.pc.wrapping_add(1));
-                    self.pc = self.pc.wrapping_add(2);
-                    self.m = 3;
-                }
+                Opcode::LDDEnn => self.ldrrnn(Reg::D, Reg::E, mmu),
                 Opcode::LD_DE_A => {
                     mmu.write_byte(self.de(), self.a);
                     self.m = 2;
@@ -233,31 +205,14 @@ impl CPU {
                     }
                     self.m = 2; //jsGB has 1?
                 }
-                Opcode::INCD => {
-                    self.inc(Reg::D);
-                }
-                Opcode::DECD => {
-                    self.dec(Reg::D);
-                }
-                Opcode::LDDn => {
-                    self.d = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    self.m = 2;
-                }
+                Opcode::INCD => self.inc(Reg::D),
+                Opcode::DECD => self.dec(Reg::D),
+                Opcode::LDDn => self.ldrn(Reg::D, mmu),
                 Opcode::RLA => {
                     self.rl(Reg::A);
                     self.m = 1;
                 }
-                Opcode::JRn => {
-                    let offset = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    if (offset & 0x80) == 0x80 {
-                        self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
-                    } else {
-                        self.pc = self.pc.wrapping_add(offset as u16);
-                    }
-                    self.m = 3;
-                }
+                Opcode::JRn => self.jump_relative(None, mmu),
                 Opcode::ADDHLDE => {
                     self.reset_flag(Flag::N);
                     let mut hl = self.hl();
@@ -284,40 +239,15 @@ impl CPU {
                     }
                     self.m = 2; //jsGB has 1?
                 }
-                Opcode::INCE => {
-                    self.inc(Reg::E);
-                }
-                Opcode::DECE => {
-                    self.dec(Reg::E);
-                }
-                Opcode::LDEn => {
-                    self.e = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    self.m = 2;
-                }
+                Opcode::INCE => self.inc(Reg::E),
+                Opcode::DECE => self.dec(Reg::E),
+                Opcode::LDEn => self.ldrn(Reg::E, mmu),
                 Opcode::RRA => {
                     self.rr(Reg::A);
                     self.m = 1;
                 }
-                Opcode::JRNZn => {
-                    self.m = 2;
-                    let offset = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    if self.test_flag(Flag::Z) == 0 {
-                        if (offset & 0x80) == 0x80 {
-                            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
-                        } else {
-                            self.pc = self.pc.wrapping_add(offset as u16);
-                        }
-                        self.m += 1;
-                    }
-                }
-                Opcode::LDHLnn => {
-                    self.l = mmu.read_byte(self.pc);
-                    self.h = mmu.read_byte(self.pc.wrapping_add(1));
-                    self.pc = self.pc.wrapping_add(2);
-                    self.m = 3;
-                }
+                Opcode::JRNZn => self.jump_relative(Some(Condition::NZ), mmu),
+                Opcode::LDHLnn => self.ldrrnn(Reg::D, Reg::E, mmu),
                 Opcode::LDI_HL_A => {
                     mmu.write_byte(self.hl(), self.a);
                     self.l = self.l.wrapping_add(1);
@@ -333,17 +263,9 @@ impl CPU {
                     }
                     self.m = 2;
                 }
-                Opcode::INCH => {
-                    self.inc(Reg::H);
-                }
-                Opcode::DECH => {
-                    self.dec(Reg::H);
-                }
-                Opcode::LDHn => {
-                    self.h = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    self.m = 2;
-                }
+                Opcode::INCH => self.inc(Reg::H),
+                Opcode::DECH => self.dec(Reg::H),
+                Opcode::LDHn => self.ldrn(Reg::H, mmu),
                 Opcode::DAA => {
                     let mut a = self.a;
                     if self.test_flag(Flag::H) == 1 || (self.a & 0xf) > 9 {
@@ -361,19 +283,7 @@ impl CPU {
                         self.set_flag(Flag::Z);
                     }
                 }
-                Opcode::JRZn => {
-                    self.m = 2;
-                    let offset = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    if self.test_flag(Flag::Z) == 1 {
-                        if (offset & 0x80) == 0x80 {
-                            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
-                        } else {
-                            self.pc = self.pc.wrapping_add(offset as u16);
-                        }
-                        self.m += 1;
-                    }
-                }
+                Opcode::JRZn => self.jump_relative(Some(Condition::Z), mmu),
                 Opcode::ADDHLHL => {
                     self.reset_flag(Flag::N);
                     let mut hl = self.hl();
@@ -403,36 +313,16 @@ impl CPU {
                     }
                     self.m = 2; //jsGB has 1?
                 }
-                Opcode::INCL => {
-                    self.inc(Reg::L);
-                }
-                Opcode::DECL => {
-                    self.dec(Reg::L);
-                }
-                Opcode::LDLn => {
-                    self.l = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    self.m = 2;
-                }
+                Opcode::INCL => self.inc(Reg::L),
+                Opcode::DECL => self.dec(Reg::L),
+                Opcode::LDLn => self.ldrn(Reg::L, mmu),
                 Opcode::CPL => {
                     self.set_flag(Flag::N);
                     self.set_flag(Flag::H);
                     self.a ^= 0xff;
                     self.m = 1;
                 }
-                Opcode::JRNCn => {
-                    self.m = 2;
-                    let offset = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    if self.test_flag(Flag::C) == 0 {
-                        if (offset & 0x80) == 0x80 {
-                            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
-                        } else {
-                            self.pc = self.pc.wrapping_add(offset as u16);
-                        }
-                        self.m += 1;
-                    }
-                }
+                Opcode::JRNCn => self.jump_relative(Some(Condition::NC), mmu),
                 Opcode::LDSPnn => {
                     self.sp = mmu.read_word(self.pc);
                     self.pc = self.pc.wrapping_add(2);
@@ -476,19 +366,7 @@ impl CPU {
                     self.set_flag(Flag::C);
                     self.m = 1;
                 }
-                Opcode::JRCn => {
-                    self.m = 2;
-                    let offset = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    if self.test_flag(Flag::C) == 1 {
-                        if (offset & 0x80) == 0x80 {
-                            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
-                        } else {
-                            self.pc = self.pc.wrapping_add(offset as u16);
-                        }
-                        self.m += 1;
-                    }
-                }
+                Opcode::JRCn => self.jump_relative(Some(Condition::C), mmu),
                 Opcode::ADDHLSP => {
                     self.reset_flag(Flag::N);
                     let mut hl = self.hl();
@@ -515,17 +393,9 @@ impl CPU {
                     self.sp = self.sp.wrapping_sub(1);
                     self.m = 2;
                 }
-                Opcode::INCA => {
-                    self.inc(Reg::A);
-                }
-                Opcode::DECA => {
-                    self.dec(Reg::A);
-                }
-                Opcode::LDAn => {
-                    self.a = mmu.read_byte(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
-                    self.m = 2;
-                }
+                Opcode::INCA => self.inc(Reg::A),
+                Opcode::DECA => self.dec(Reg::A),
+                Opcode::LDAn => self.ldrn(Reg::A, mmu),
                 Opcode::CCF => {
                     self.reset_flag(Flag::N);
                     self.reset_flag(Flag::H);
@@ -536,70 +406,28 @@ impl CPU {
                     }
                     self.m = 1;
                 }
-                Opcode::LDBB => {
-                    self.m = 1;
-                }
-                Opcode::LDBC => {
-                    self.b = self.c;
-                    self.m = 1;
-                }
-                Opcode::LDBD => {
-                    self.b = self.d;
-                    self.m = 1;
-                }
-                Opcode::LDBE => {
-                    self.b = self.e;
-                    self.m = 1;
-                }
-                Opcode::LDBH => {
-                    self.b = self.h;
-                    self.m = 1;
-                }
-                Opcode::LDBL => {
-                    self.b = self.l;
-                    self.m = 1;
-                }
+                Opcode::LDBB => self.ldrr(Reg::B, Reg::B),
+                Opcode::LDBC => self.ldrr(Reg::B, Reg::C),
+                Opcode::LDBD => self.ldrr(Reg::B, Reg::D),
+                Opcode::LDBE => self.ldrr(Reg::B, Reg::E),
+                Opcode::LDBH => self.ldrr(Reg::B, Reg::H),
+                Opcode::LDBL => self.ldrr(Reg::B, Reg::L),
                 Opcode::LDB_HL_ => {
                     self.b = mmu.read_byte(self.hl());
                     self.m = 2;
                 }
-                Opcode::LDBA => {
-                    self.b = self.a;
-                    self.m = 1;
-                }
-
-                Opcode::LDCB => {
-                    self.c = self.b;
-                    self.m = 1;
-                }
-                Opcode::LDCC => {
-                    self.m = 1;
-                }
-                Opcode::LDCD => {
-                    self.c = self.d;
-                    self.m = 1;
-                }
-                Opcode::LDCE => {
-                    self.c = self.e;
-                    self.m = 1;
-                }
-                Opcode::LDCH => {
-                    self.c = self.h;
-                    self.m = 1;
-                }
-                Opcode::LDCL => {
-                    self.c = self.l;
-                    self.m = 1;
-                }
+                Opcode::LDBA => self.ldrr(Reg::B, Reg::A),
+                Opcode::LDCB => self.ldrr(Reg::C, Reg::B),
+                Opcode::LDCC => self.ldrr(Reg::C, Reg::C),
+                Opcode::LDCD => self.ldrr(Reg::C, Reg::D),
+                Opcode::LDCE => self.ldrr(Reg::C, Reg::E),
+                Opcode::LDCH => self.ldrr(Reg::C, Reg::H),
+                Opcode::LDCL => self.ldrr(Reg::C, Reg::L),
                 Opcode::LDC_HL_ => {
                     self.c = mmu.read_byte(self.hl());
                     self.m = 2;
                 }
-                Opcode::LDCA => {
-                    self.c = self.a;
-                    self.m = 1;
-                }
-
+                Opcode::LDCA => self.ldrr(Reg::C, Reg::A),
                 Opcode::LDDB => {
                     self.d = self.b;
                     self.m = 1;
@@ -1052,12 +880,7 @@ impl CPU {
                     self.cmp(v);
                 }
                 Opcode::RETNZ => {
-                    self.m = 2; //jsGB has 3 (1 + 2 if true)?
-                    if self.test_flag(Flag::Z) == 0 {
-                        self.pc = mmu.read_word(self.sp);
-                        self.sp = self.sp.wrapping_add(2);
-                        self.m += 3;
-                    }
+                    self.ret(Some(Condition::NZ), mmu);
                 }
                 Opcode::POPBC => {
                     self.c = mmu.read_byte(self.sp);
@@ -1067,17 +890,10 @@ impl CPU {
                     self.m = 3;
                 }
                 Opcode::JPNZnn => {
-                    self.m = 3;
-                    if self.test_flag(Flag::Z) == 0 {
-                        self.pc = mmu.read_word(self.pc);
-                        self.m += 1;
-                    } else {
-                        self.pc = self.pc.wrapping_add(2);
-                    }
+                    self.jump(Some(Condition::NZ), mmu);
                 }
                 Opcode::JPnn => {
-                    self.pc = mmu.read_word(self.pc);
-                    self.m = 4;
+                    self.jump(None, mmu);
                 }
                 Opcode::CALLNZnn => {
                     self.call(Some(Condition::NZ), mmu);
@@ -1102,34 +918,12 @@ impl CPU {
                     self.pc = 0;
                     self.m = 4;
                 }
-                Opcode::RETZ => {
-                    self.m = 2;
-                    if self.test_flag(Flag::Z) == 1 {
-                        self.pc = mmu.read_word(self.sp);
-                        self.sp = self.sp.wrapping_add(2);
-                        self.m += 3;
-                    }
-                }
-                Opcode::RET => {
-                    self.pc = mmu.read_word(self.sp);
-                    self.sp = self.sp.wrapping_add(2);
-                    self.m = 4;
-                }
-                Opcode::JPZnn => {
-                    if self.test_flag(Flag::Z) == 1 {
-                        self.pc = mmu.read_word(self.pc);
-                    } else {
-                        self.pc = self.pc.wrapping_add(2);
-                    }
-                    self.m = 3;
-                }
+                Opcode::RETZ => self.ret(Some(Condition::Z), mmu),
+                Opcode::RET => self.ret(None, mmu),
+                Opcode::JPZnn => self.jump(Some(Condition::Z), mmu),
                 Opcode::ExtOps => return self.exec_ext(mmu),
-                Opcode::CALLZnn => {
-                    self.call(Some(Condition::Z), mmu);
-                }
-                Opcode::CALLnn => {
-                    self.call(None, mmu);
-                }
+                Opcode::CALLZnn => self.call(Some(Condition::Z), mmu),
+                Opcode::CALLnn => self.call(None, mmu),
                 Opcode::ADCAn => {
                     let value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
@@ -1143,14 +937,7 @@ impl CPU {
                     self.pc = 0x8;
                     self.m = 4;
                 }
-                Opcode::RETNC => {
-                    self.m = 2;
-                    if self.test_flag(Flag::C) == 0 {
-                        self.pc = mmu.read_word(self.sp);
-                        self.sp = self.sp.wrapping_add(2);
-                        self.m += 3;
-                    }
-                }
+                Opcode::RETNC => self.ret(Some(Condition::NC), mmu),
                 Opcode::POPDE => {
                     self.e = mmu.read_byte(self.sp);
                     self.sp = self.sp.wrapping_add(1);
@@ -1158,18 +945,8 @@ impl CPU {
                     self.sp = self.sp.wrapping_add(1);
                     self.m = 3;
                 }
-                Opcode::JPNCnn => {
-                    self.m = 3;
-                    if self.test_flag(Flag::C) == 0 {
-                        self.pc = mmu.read_word(self.pc);
-                        self.m += 1;
-                    } else {
-                        self.pc = self.pc.wrapping_add(2);
-                    }
-                }
-                Opcode::CALLNCnn => {
-                    self.call(Some(Condition::NC), mmu);
-                }
+                Opcode::JPNCnn => self.jump(Some(Condition::NC), mmu),
+                Opcode::CALLNCnn => self.call(Some(Condition::NC), mmu),
                 Opcode::PUSHDE => {
                     self.sp = self.sp.wrapping_sub(1);
                     mmu.write_byte(self.sp, self.d);
@@ -1190,33 +967,15 @@ impl CPU {
                     self.pc = 0x10;
                     self.m = 4;
                 }
-                Opcode::RETC => {
-                    self.m = 2;
-                    if self.test_flag(Flag::C) == 1 {
-                        self.pc = mmu.read_word(self.sp);
-                        self.sp = self.sp.wrapping_add(2);
-                        self.m += 3;
-                    }
-                }
+                Opcode::RETC => self.ret(Some(Condition::C), mmu),
                 Opcode::RETI => {
-                    self.pc = mmu.read_word(self.sp);
-                    self.sp = self.sp.wrapping_add(2);
+                    self.do_ret(mmu);
                     self.ime = true;
                     // self.restore(mmu.rrs());
-                    self.m = 4;
-                }
-                Opcode::JPCnn => {
                     self.m = 3;
-                    if self.test_flag(Flag::C) == 1 {
-                        self.pc = mmu.read_word(self.pc);
-                        self.m += 1;
-                    } else {
-                        self.pc = self.pc.wrapping_add(2);
-                    }
                 }
-                Opcode::CALLCnn => {
-                    self.call(Some(Condition::C), mmu);
-                }
+                Opcode::JPCnn => self.jump(Some(Condition::C), mmu),
+                Opcode::CALLCnn => self.call(Some(Condition::C), mmu),
                 Opcode::SBCAn => {
                     let value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
@@ -1409,24 +1168,12 @@ impl CPU {
         self.pc = self.pc.wrapping_add(1);
         match ExtOpcode::from_u8(mmu.read_byte(pc)) {
             Some(op) => match op {
-                ExtOpcode::RLCB => {
-                    self.rlc(Reg::B);
-                }
-                ExtOpcode::RLCC => {
-                    self.rlc(Reg::C);
-                }
-                ExtOpcode::RLCD => {
-                    self.rlc(Reg::D);
-                }
-                ExtOpcode::RLCE => {
-                    self.rlc(Reg::E);
-                }
-                ExtOpcode::RLCH => {
-                    self.rlc(Reg::H);
-                }
-                ExtOpcode::RLCL => {
-                    self.rlc(Reg::H);
-                }
+                ExtOpcode::RLCB => self.rlc(Reg::B),
+                ExtOpcode::RLCC => self.rlc(Reg::C),
+                ExtOpcode::RLCD => self.rlc(Reg::D),
+                ExtOpcode::RLCE => self.rlc(Reg::E),
+                ExtOpcode::RLCH => self.rlc(Reg::H),
+                ExtOpcode::RLCL => self.rlc(Reg::H),
                 ExtOpcode::RLC_HL_ => {
                     let addr = self.hl();
                     let mut value = mmu.read_byte(addr);
@@ -1434,27 +1181,13 @@ impl CPU {
                     mmu.write_byte(addr, value);
                     self.m = 4;
                 }
-                ExtOpcode::RLCA => {
-                    self.rlc(Reg::A);
-                }
-                ExtOpcode::RRCB => {
-                    self.rrc(Reg::B);
-                }
-                ExtOpcode::RRCC => {
-                    self.rrc(Reg::C);
-                }
-                ExtOpcode::RRCD => {
-                    self.rrc(Reg::D);
-                }
-                ExtOpcode::RRCE => {
-                    self.rrc(Reg::E);
-                }
-                ExtOpcode::RRCH => {
-                    self.rrc(Reg::H);
-                }
-                ExtOpcode::RRCL => {
-                    self.rrc(Reg::L);
-                }
+                ExtOpcode::RLCA => self.rlc(Reg::A),
+                ExtOpcode::RRCB => self.rrc(Reg::B),
+                ExtOpcode::RRCC => self.rrc(Reg::C),
+                ExtOpcode::RRCD => self.rrc(Reg::D),
+                ExtOpcode::RRCE => self.rrc(Reg::E),
+                ExtOpcode::RRCH => self.rrc(Reg::H),
+                ExtOpcode::RRCL => self.rrc(Reg::L),
                 ExtOpcode::RRC_HL_ => {
                     let addr = self.hl();
                     let mut value = mmu.read_byte(addr);
@@ -1462,27 +1195,13 @@ impl CPU {
                     mmu.write_byte(addr, value);
                     self.m = 4;
                 }
-                ExtOpcode::RRCA => {
-                    self.rrc(Reg::A);
-                }
-                ExtOpcode::RLB => {
-                    self.rl(Reg::B);
-                }
-                ExtOpcode::RLC => {
-                    self.rl(Reg::C);
-                }
-                ExtOpcode::RLD => {
-                    self.rl(Reg::D);
-                }
-                ExtOpcode::RLE => {
-                    self.rl(Reg::E);
-                }
-                ExtOpcode::RLH => {
-                    self.rl(Reg::H);
-                }
-                ExtOpcode::RLL => {
-                    self.rl(Reg::L);
-                }
+                ExtOpcode::RRCA => self.rrc(Reg::A),
+                ExtOpcode::RLB => self.rl(Reg::B),
+                ExtOpcode::RLC => self.rl(Reg::C),
+                ExtOpcode::RLD => self.rl(Reg::D),
+                ExtOpcode::RLE => self.rl(Reg::E),
+                ExtOpcode::RLH => self.rl(Reg::H),
+                ExtOpcode::RLL => self.rl(Reg::L),
                 ExtOpcode::RL_HL_ => {
                     let addr = self.hl();
                     let mut value = mmu.read_byte(addr);
@@ -1490,27 +1209,13 @@ impl CPU {
                     mmu.write_byte(addr, value);
                     self.m = 4;
                 }
-                ExtOpcode::RLA => {
-                    self.rl(Reg::A);
-                }
-                ExtOpcode::RRB => {
-                    self.rr(Reg::B);
-                }
-                ExtOpcode::RRC => {
-                    self.rr(Reg::C);
-                }
-                ExtOpcode::RRD => {
-                    self.rr(Reg::D);
-                }
-                ExtOpcode::RRE => {
-                    self.rr(Reg::E);
-                }
-                ExtOpcode::RRH => {
-                    self.rr(Reg::H);
-                }
-                ExtOpcode::RRL => {
-                    self.rr(Reg::L);
-                }
+                ExtOpcode::RLA => self.rl(Reg::A),
+                ExtOpcode::RRB => self.rr(Reg::B),
+                ExtOpcode::RRC => self.rr(Reg::C),
+                ExtOpcode::RRD => self.rr(Reg::D),
+                ExtOpcode::RRE => self.rr(Reg::E),
+                ExtOpcode::RRH => self.rr(Reg::H),
+                ExtOpcode::RRL => self.rr(Reg::L),
                 ExtOpcode::RR_HL_ => {
                     let addr = self.hl();
                     let mut value = mmu.read_byte(addr);
@@ -1518,27 +1223,13 @@ impl CPU {
                     mmu.write_byte(addr, value);
                     self.m = 4;
                 }
-                ExtOpcode::RRA => {
-                    self.rr(Reg::A);
-                }
-                ExtOpcode::SLAB => {
-                    self.sla(Reg::B);
-                }
-                ExtOpcode::SLAC => {
-                    self.sla(Reg::C);
-                }
-                ExtOpcode::SLAD => {
-                    self.sla(Reg::D);
-                }
-                ExtOpcode::SLAE => {
-                    self.sla(Reg::E);
-                }
-                ExtOpcode::SLAH => {
-                    self.sla(Reg::H);
-                }
-                ExtOpcode::SLAL => {
-                    self.sla(Reg::L);
-                }
+                ExtOpcode::RRA => self.rr(Reg::A),
+                ExtOpcode::SLAB => self.sla(Reg::B),
+                ExtOpcode::SLAC => self.sla(Reg::C),
+                ExtOpcode::SLAD => self.sla(Reg::D),
+                ExtOpcode::SLAE => self.sla(Reg::E),
+                ExtOpcode::SLAH => self.sla(Reg::H),
+                ExtOpcode::SLAL => self.sla(Reg::L),
                 ExtOpcode::SLA_HL_ => {
                     let addr = self.hl();
                     let mut value = mmu.read_byte(addr);
@@ -1546,27 +1237,13 @@ impl CPU {
                     mmu.write_byte(addr, value);
                     self.m = 4;
                 }
-                ExtOpcode::SLAA => {
-                    self.sla(Reg::A);
-                }
-                ExtOpcode::SRAB => {
-                    self.sra(Reg::B);
-                }
-                ExtOpcode::SRAC => {
-                    self.sra(Reg::C);
-                }
-                ExtOpcode::SRAD => {
-                    self.sra(Reg::D);
-                }
-                ExtOpcode::SRAE => {
-                    self.sra(Reg::E);
-                }
-                ExtOpcode::SRAH => {
-                    self.sra(Reg::H);
-                }
-                ExtOpcode::SRAL => {
-                    self.sra(Reg::L);
-                }
+                ExtOpcode::SLAA => self.sla(Reg::A),
+                ExtOpcode::SRAB => self.sra(Reg::B),
+                ExtOpcode::SRAC => self.sra(Reg::C),
+                ExtOpcode::SRAD => self.sra(Reg::D),
+                ExtOpcode::SRAE => self.sra(Reg::E),
+                ExtOpcode::SRAH => self.sra(Reg::H),
+                ExtOpcode::SRAL => self.sra(Reg::L),
                 ExtOpcode::SRA_HL_ => {
                     let addr = self.hl();
                     let mut value = mmu.read_byte(addr);
@@ -1574,27 +1251,13 @@ impl CPU {
                     mmu.write_byte(addr, value);
                     self.m = 4;
                 }
-                ExtOpcode::SRAA => {
-                    self.sra(Reg::A);
-                }
-                ExtOpcode::SWAPB => {
-                    self.swap(Reg::B);
-                }
-                ExtOpcode::SWAPC => {
-                    self.swap(Reg::C);
-                }
-                ExtOpcode::SWAPD => {
-                    self.swap(Reg::D);
-                }
-                ExtOpcode::SWAPE => {
-                    self.swap(Reg::E);
-                }
-                ExtOpcode::SWAPH => {
-                    self.swap(Reg::H);
-                }
-                ExtOpcode::SWAPL => {
-                    self.swap(Reg::L);
-                }
+                ExtOpcode::SRAA => self.sra(Reg::A),
+                ExtOpcode::SWAPB => self.swap(Reg::B),
+                ExtOpcode::SWAPC => self.swap(Reg::C),
+                ExtOpcode::SWAPD => self.swap(Reg::D),
+                ExtOpcode::SWAPE => self.swap(Reg::E),
+                ExtOpcode::SWAPH => self.swap(Reg::H),
+                ExtOpcode::SWAPL => self.swap(Reg::L),
                 ExtOpcode::SWAP_HL_ => {
                     let addr = self.hl();
                     let mut value = mmu.read_byte(addr);
@@ -1602,27 +1265,13 @@ impl CPU {
                     mmu.write_byte(addr, value);
                     self.m = 4;
                 }
-                ExtOpcode::SWAPA => {
-                    self.swap(Reg::A);
-                }
-                ExtOpcode::SRLB => {
-                    self.srl(Reg::B);
-                }
-                ExtOpcode::SRLC => {
-                    self.srl(Reg::C);
-                }
-                ExtOpcode::SRLD => {
-                    self.srl(Reg::D);
-                }
-                ExtOpcode::SRLE => {
-                    self.srl(Reg::E);
-                }
-                ExtOpcode::SRLH => {
-                    self.srl(Reg::H);
-                }
-                ExtOpcode::SRLL => {
-                    self.srl(Reg::L);
-                }
+                ExtOpcode::SWAPA => self.swap(Reg::A),
+                ExtOpcode::SRLB => self.srl(Reg::B),
+                ExtOpcode::SRLC => self.srl(Reg::C),
+                ExtOpcode::SRLD => self.srl(Reg::D),
+                ExtOpcode::SRLE => self.srl(Reg::E),
+                ExtOpcode::SRLH => self.srl(Reg::H),
+                ExtOpcode::SRLL => self.srl(Reg::L),
                 ExtOpcode::SRL_HL_ => {
                     let addr = self.hl();
                     let mut value = mmu.read_byte(addr);
@@ -1630,53 +1279,25 @@ impl CPU {
                     mmu.write_byte(addr, value);
                     self.m = 4;
                 }
-                ExtOpcode::SRLA => {
-                    self.srl(Reg::A);
-                }
-                ExtOpcode::BIT0B => {
-                    self.bit(Reg::B, 0);
-                }
-                ExtOpcode::BIT0C => {
-                    self.bit(Reg::C, 0);
-                }
-                ExtOpcode::BIT0D => {
-                    self.bit(Reg::D, 0);
-                }
-                ExtOpcode::BIT0E => {
-                    self.bit(Reg::E, 0);
-                }
-                ExtOpcode::BIT0H => {
-                    self.bit(Reg::H, 0);
-                }
-                ExtOpcode::BIT0L => {
-                    self.bit(Reg::L, 0);
-                }
+                ExtOpcode::SRLA => self.srl(Reg::A),
+                ExtOpcode::BIT0B => self.bit(Reg::B, 0),
+                ExtOpcode::BIT0C => self.bit(Reg::C, 0),
+                ExtOpcode::BIT0D => self.bit(Reg::D, 0),
+                ExtOpcode::BIT0E => self.bit(Reg::E, 0),
+                ExtOpcode::BIT0H => self.bit(Reg::H, 0),
+                ExtOpcode::BIT0L => self.bit(Reg::L, 0),
                 ExtOpcode::BIT0_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.bit_val(value, 0);
                     self.m = 3;
                 }
-                ExtOpcode::BIT0A => {
-                    self.bit(Reg::A, 0);
-                }
-                ExtOpcode::BIT1B => {
-                    self.bit(Reg::B, 1);
-                }
-                ExtOpcode::BIT1C => {
-                    self.bit(Reg::C, 1);
-                }
-                ExtOpcode::BIT1D => {
-                    self.bit(Reg::D, 1);
-                }
-                ExtOpcode::BIT1E => {
-                    self.bit(Reg::E, 1);
-                }
-                ExtOpcode::BIT1H => {
-                    self.bit(Reg::H, 1);
-                }
-                ExtOpcode::BIT1L => {
-                    self.bit(Reg::L, 1);
-                }
+                ExtOpcode::BIT0A => self.bit(Reg::A, 0),
+                ExtOpcode::BIT1B => self.bit(Reg::B, 1),
+                ExtOpcode::BIT1C => self.bit(Reg::C, 1),
+                ExtOpcode::BIT1D => self.bit(Reg::D, 1),
+                ExtOpcode::BIT1E => self.bit(Reg::E, 1),
+                ExtOpcode::BIT1H => self.bit(Reg::H, 1),
+                ExtOpcode::BIT1L => self.bit(Reg::L, 1),
                 ExtOpcode::BIT1_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.bit_val(value, 1);
@@ -2341,6 +1962,25 @@ impl CPU {
         }
     }
 
+    fn ldrn(&mut self, reg: Reg, mmu: &IoDevice) {
+        self.set_reg(reg, mmu.read_byte(self.pc));
+        self.pc = self.pc.wrapping_add(1);
+        self.m = 2;
+    }
+
+    fn ldrrnn(&mut self, hi: Reg, lo: Reg, mmu: &IoDevice) {
+        self.set_reg(lo, mmu.read_byte(self.pc));
+        self.set_reg(hi, mmu.read_byte(self.pc.wrapping_add(1)));
+        self.pc = self.pc.wrapping_add(2);
+        self.m = 3;
+    }
+
+    fn ldrr(&mut self, to: Reg, from: Reg) {
+        let value = self.get_reg(from);
+        self.set_reg(to, value);
+        self.m = 1;
+    }
+
     fn add(&mut self, value: u8) {
         self.f = 0;
         if check_half_carry_8(self.a, value) {
@@ -2693,16 +2333,19 @@ impl CPU {
         self.m = 2;
     }
 
+    fn condition_is_met(&self, cond: Condition) -> bool {
+        match cond {
+            Condition::Z => self.test_flag(Flag::Z) == 1,
+            Condition::NZ => self.test_flag(Flag::Z) == 0,
+            Condition::C => self.test_flag(Flag::C) == 1,
+            Condition::NC => self.test_flag(Flag::C) == 0,
+        }
+    }
+
     fn call(&mut self, cond: Option<Condition>, mmu: &mut IoDevice) {
         self.m = 3;
         if let Some(c) = cond {
-            let should_call = match c {
-                Condition::Z => self.test_flag(Flag::Z) == 1,
-                Condition::NZ => self.test_flag(Flag::Z) == 0,
-                Condition::C => self.test_flag(Flag::C) == 1,
-                Condition::NC => self.test_flag(Flag::C) == 0,
-            };
-            if should_call {
+            if self.condition_is_met(c) {
                 self.do_call(mmu);
             } else {
                 self.pc = self.pc.wrapping_add(2);
@@ -2718,12 +2361,75 @@ impl CPU {
         self.pc = mmu.read_word(self.pc);
         self.m += 3;
     }
+
+    fn jump(&mut self, cond: Option<Condition>, mmu: &IoDevice) {
+        self.m = 3;
+        if let Some(c) = cond {
+            if self.condition_is_met(c) {
+                self.do_jump(mmu);
+            } else {
+                self.pc = self.pc.wrapping_add(2);
+            }
+        } else {
+            self.do_jump(mmu);
+        }
+    }
+
+    fn do_jump(&mut self, mmu: &IoDevice) {
+        self.pc = mmu.read_word(self.pc);
+        self.m += 1;
+    }
+
+    fn jump_relative(&mut self, cond: Option<Condition>, mmu: &IoDevice) {
+        self.m = 2;
+        if let Some(c) = cond {
+            if self.condition_is_met(c) {
+                self.do_jump_relative(mmu);
+            } else {
+                self.pc = self.pc.wrapping_add(1);
+            }
+        } else {
+            self.do_jump_relative(mmu);
+        }
+    }
+
+    fn do_jump_relative(&mut self, mmu: &IoDevice) {
+        let offset = mmu.read_byte(self.pc);
+        if (offset & 0x80) == 0x80 {
+            self.pc = self.pc.wrapping_sub((!offset + 1) as u16);
+        } else {
+            self.pc = self.pc.wrapping_add(offset as u16);
+        }
+        self.m += 1;
+    }
+
+    fn ret(&mut self, cond: Option<Condition>, mmu: &IoDevice) {
+        self.m = 1;
+        if let Some(c) = cond {
+            if self.condition_is_met(c) {
+                self.do_ret(mmu);
+            }
+        } else {
+            self.do_ret(mmu);
+        }
+    }
+
+    fn do_ret(&mut self, mmu: &IoDevice) {
+        self.pc = mmu.read_word(self.sp);
+        self.sp = self.sp.wrapping_add(2);
+        self.m += 2;
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{cartridge::Cartridge, gpu::GPU, timer::Timer};
+    use crate::{
+        cartridge::Cartridge,
+        gpu::GPU,
+        timer::Timer,
+        utils::{hi_byte, lo_byte},
+    };
     use mockers::Scenario;
     use std::rc::Rc;
 
@@ -2732,14 +2438,6 @@ mod tests {
         cart_data[0x0] = b1;
         cart_data[0x1] = b2;
         cart_data[0x2] = b3;
-        let cart = Cartridge::new(&cart_data);
-        let timer = Timer::new();
-        let gpu = GPU::new();
-        MMU::new(cart, Rc::new(timer), Rc::new(gpu))
-    }
-
-    fn mmu() -> MMU {
-        let mut cart_data = [0; 0x400];
         let cart = Cartridge::new(&cart_data);
         let timer = Timer::new();
         let gpu = GPU::new();
@@ -2797,6 +2495,60 @@ mod tests {
 
     fn registers() -> Vec<Reg> {
         vec![Reg::A, Reg::B, Reg::C, Reg::D, Reg::E, Reg::H, Reg::L]
+    }
+
+    fn register_pairs() -> Vec<(Reg, Reg)> {
+        vec![(Reg::B, Reg::C), (Reg::D, Reg::E), (Reg::H, Reg::L)]
+    }
+
+    #[test]
+    fn test_ldrn() {
+        for (i, r) in registers().into_iter().enumerate() {
+            let mut cpu = CPU::new();
+            cpu.pc = 0x100;
+            cpu.set_reg(r, 0xff);
+            let scenario = Scenario::new();
+            let mmu = scenario.create_mock_for::<IoDevice>();
+
+            scenario.expect(mmu.read_byte_call(0x100).and_return(i as u8));
+            cpu.ldrn(r, &mmu);
+            assert_eq!(cpu.get_reg(r), i as u8);
+            assert_eq!(cpu.pc, 0x101);
+        }
+    }
+
+    #[test]
+    fn test_ldrrnn() {
+        for (i, (hi, lo)) in register_pairs().into_iter().enumerate() {
+            let mut cpu = CPU::new();
+            cpu.pc = 0x100;
+            cpu.set_reg(hi, 0xff);
+            cpu.set_reg(lo, 0xff);
+            let scenario = Scenario::new();
+            let mmu = scenario.create_mock_for::<IoDevice>();
+
+            let value = (i as u16) << 8;
+            scenario.expect(mmu.read_byte_call(0x100).and_return(lo_byte(value)));
+            scenario.expect(mmu.read_byte_call(0x101).and_return(hi_byte(value)));
+            cpu.ldrrnn(hi, lo, &mmu);
+            assert_eq!(cpu.get_reg(hi), hi_byte(value));
+            assert_eq!(cpu.get_reg(lo), lo_byte(value));
+        }
+    }
+
+    #[test]
+    fn test_ldrr() {
+        for to in registers().into_iter() {
+            for from in registers().into_iter() {
+                let mut cpu = CPU::new();
+                cpu.set_reg(to, 0x12);
+                cpu.set_reg(from, 0xab);
+
+                cpu.ldrr(to, from);
+                assert_eq!(cpu.get_reg(to), 0xab);
+                assert_eq!(cpu.get_reg(from), 0xab);
+            }
+        }
     }
 
     #[test]
@@ -3225,6 +2977,85 @@ mod tests {
     }
 
     #[test]
+    fn test_jump() {
+        let mut cpu = CPU::new();
+        let scenario = Scenario::new();
+        let mmu = scenario.create_mock_for::<IoDevice>();
+        cpu.pc = 0x200;
+
+        scenario.expect(mmu.read_word_call(0x200).and_return(0x234));
+        cpu.jump(None, &mmu);
+        assert_eq!(cpu.pc, 0x234);
+
+        cpu.jump(Some(Condition::Z), &mmu);
+        assert_eq!(cpu.pc, 0x236);
+
+        cpu.set_flag(Flag::Z);
+        scenario.expect(mmu.read_word_call(0x236).and_return(0x123));
+        cpu.jump(Some(Condition::Z), &mmu);
+        assert_eq!(cpu.pc, 0x123);
+
+        cpu.set_flag(Flag::C);
+        scenario.expect(mmu.read_word_call(0x123).and_return(0x456));
+        cpu.jump(Some(Condition::C), &mmu);
+        assert_eq!(cpu.pc, 0x456);
+
+        cpu.reset_flag(Flag::C);
+        scenario.expect(mmu.read_word_call(0x456).and_return(0x400));
+        cpu.jump(Some(Condition::NC), &mmu);
+        assert_eq!(cpu.pc, 0x400);
+
+        cpu.jump(Some(Condition::C), &mmu);
+        assert_eq!(cpu.pc, 0x402);
+    }
+
+    #[test]
+    fn test_jump_relative() {
+        let mut cpu = CPU::new();
+        let scenario = Scenario::new();
+        let mmu = scenario.create_mock_for::<IoDevice>();
+        cpu.pc = 0x200;
+
+        scenario.expect(mmu.read_byte_call(0x200).and_return(0xf));
+        cpu.jump_relative(None, &mmu);
+        assert_eq!(cpu.pc, 0x20f);
+
+        scenario.expect(mmu.read_byte_call(0x20f).and_return(0xf5));
+        cpu.jump_relative(None, &mmu);
+        assert_eq!(cpu.pc, 0x204);
+
+        cpu.jump_relative(Some(Condition::C), &mmu);
+        assert_eq!(cpu.pc, 0x205);
+
+        scenario.expect(mmu.read_byte_call(0x205).and_return(0xff));
+        cpu.jump_relative(Some(Condition::NC), &mmu);
+        assert_eq!(cpu.pc, 0x204);
+    }
+
+    #[test]
+    fn test_ret() {
+        let mut cpu = CPU::new();
+        let scenario = Scenario::new();
+        let mmu = scenario.create_mock_for::<IoDevice>();
+        cpu.pc = 0x200;
+        cpu.sp = 0xfff4;
+
+        scenario.expect(mmu.read_word_call(0xfff4).and_return(0x150));
+        cpu.ret(None, &mmu);
+        assert_eq!(cpu.pc, 0x150);
+        assert_eq!(cpu.sp, 0xfff6);
+
+        scenario.expect(mmu.read_word_call(0xfff6).and_return(0x100));
+        cpu.ret(Some(Condition::NZ), &mmu);
+        assert_eq!(cpu.pc, 0x100);
+        assert_eq!(cpu.sp, 0xfff8);
+
+        cpu.ret(Some(Condition::C), &mmu);
+        assert_eq!(cpu.pc, 0x100);
+        assert_eq!(cpu.sp, 0xfff8);
+    }
+
+    #[test]
     fn test_8bit_loads() {
         let mut cpu = CPU::new();
         let test_data = [
@@ -3271,78 +3102,5 @@ mod tests {
 
         cpu.exec(&mut mmu).expect("CPU exec failed");
         assert_eq!(cpu.a, 0xab);
-    }
-
-    #[test]
-    fn test_rra() {
-        let mut cpu = CPU::new();
-        cpu.a = 0b1000_0000;
-        cpu.set_flag(Flag::N);
-        cpu.set_flag(Flag::H);
-        cpu.set_flag(Flag::C);
-        cpu.exec(&mut mmu_stub(Opcode::RRA as u8, 0, 0))
-            .expect("CPU exec failed");
-        assert_eq!(cpu.a, 0b1100_0000);
-        assert_eq!(cpu.test_flag(Flag::C), 0);
-        assert_eq!(cpu.test_flag(Flag::N), 0);
-        assert_eq!(cpu.test_flag(Flag::H), 0);
-    }
-
-    #[test]
-    fn test_jrn() {
-        let mut cpu = CPU::new();
-        cpu.exec(&mut mmu_stub(Opcode::JRn as u8, 0xff, 0))
-            .expect("CPU exec failed");
-        assert_eq!(cpu.pc, 1);
-
-        cpu.pc = 0;
-        cpu.exec(&mut mmu_stub(Opcode::JRn as u8, 0x1, 0))
-            .expect("CPU exec failed");
-        assert_eq!(cpu.pc, 3);
-    }
-
-    #[test]
-    fn test_bit_ops() {
-        let mut cpu = CPU::new();
-
-        cpu.c = 0b1101_0100;
-        cpu.exec(&mut mmu_stub(
-            Opcode::ExtOps as u8,
-            ExtOpcode::BIT3C as u8,
-            0,
-        ))
-        .expect("CPU exec failed");
-        assert_eq!(cpu.test_flag(Flag::Z), 1);
-
-        cpu.pc = 0;
-        cpu.reset_flag(Flag::Z);
-        cpu.d = 0b0010_0100;
-        cpu.exec(&mut mmu_stub(
-            Opcode::ExtOps as u8,
-            ExtOpcode::BIT2D as u8,
-            0,
-        ))
-        .expect("CPU exec failed");
-        assert_eq!(cpu.test_flag(Flag::Z), 0);
-
-        cpu.pc = 0;
-        cpu.a = 0b0010_0100;
-        cpu.exec(&mut mmu_stub(
-            Opcode::ExtOps as u8,
-            ExtOpcode::SET7A as u8,
-            0,
-        ))
-        .expect("CPU exec failed");
-        assert_eq!(cpu.a, 0b1010_0100);
-
-        cpu.pc = 0;
-        cpu.l = 0b0011_0110;
-        cpu.exec(&mut mmu_stub(
-            Opcode::ExtOps as u8,
-            ExtOpcode::RES4L as u8,
-            0,
-        ))
-        .expect("CPU exec failed");
-        assert_eq!(cpu.l, 0b0010_0110);
     }
 }

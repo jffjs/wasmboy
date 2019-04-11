@@ -28,6 +28,14 @@ pub fn test_bit(b: u8, n: u8) -> u8 {
     (n & (1 << b)) >> b
 }
 
+pub fn hi_byte(word: u16) -> u8 {
+    (word >> 8) as u8
+}
+
+pub fn lo_byte(word: u16) -> u8 {
+    (word & 0xff) as u8
+}
+
 pub fn check_half_carry_8(a: u8, b: u8) -> bool {
     ((a.wrapping_add(b)) ^ b ^ a) & 0x10 == 0x10
 }
