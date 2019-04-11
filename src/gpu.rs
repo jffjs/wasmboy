@@ -1,4 +1,4 @@
-use emulator::IntFlag;
+use crate::emulator::IntFlag;
 use num::{FromPrimitive, ToPrimitive};
 use std::cell::{Cell, RefCell};
 use std::ops::{BitAnd, BitOr};

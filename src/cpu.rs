@@ -1,8 +1,5 @@
-use emulator::IntFlag;
-use mmu::MMU;
+use crate::{emulator::IntFlag, io_device::IoDevice, mmu::MMU, opcode::*, utils::*};
 use num::FromPrimitive;
-use opcode::*;
-use utils::*;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -109,7 +106,7 @@ impl CPU {
     }
 
     pub fn handle_interrupt(&mut self, iflag: IntFlag, mmu: &mut MMU) {
-        mmu.rsv(self.clone());
+        // mmu.rsv(self.clone());
         self.sp = self.sp.wrapping_sub(2);
         mmu.write_word(self.sp, self.pc);
         match iflag {
@@ -122,7 +119,7 @@ impl CPU {
         self.clock.m += 4;
     }
 
-    pub fn exec(&mut self, mmu: &mut MMU) -> Result<(), String> {
+    pub fn exec(&mut self, mmu: &mut IoDevice) -> Result<(), String> {
         let pc = self.pc;
         self.pc = self.pc.wrapping_add(1);
         let opcode = Opcode::from_u8(mmu.read_byte(pc));
@@ -1099,7 +1096,7 @@ impl CPU {
                     self.m += 1;
                 }
                 Opcode::RST0 => {
-                    mmu.rsv(self.clone());
+                    // mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0;
@@ -1140,7 +1137,7 @@ impl CPU {
                     self.m += 1;
                 }
                 Opcode::RST8 => {
-                    mmu.rsv(self.clone());
+                    // mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x8;
@@ -1187,7 +1184,7 @@ impl CPU {
                     self.m += 1;
                 }
                 Opcode::RST10 => {
-                    mmu.rsv(self.clone());
+                    // mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x10;
@@ -1221,13 +1218,13 @@ impl CPU {
                     self.call(Some(Condition::C), mmu);
                 }
                 Opcode::SBCAn => {
-                    let mut value = mmu.read_byte(self.pc);
+                    let value = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
                     self.sbc(value);
                     self.m += 1;
                 }
                 Opcode::RST18 => {
-                    mmu.rsv(self.clone());
+                    // mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x18;
@@ -1266,7 +1263,7 @@ impl CPU {
                     self.m += 1;
                 }
                 Opcode::RST20 => {
-                    mmu.rsv(self.clone());
+                    // mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x20;
@@ -1301,7 +1298,7 @@ impl CPU {
                     self.m += 1;
                 }
                 Opcode::RST28 => {
-                    mmu.rsv(self.clone());
+                    // mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x28;
@@ -1339,7 +1336,7 @@ impl CPU {
                     self.m += 1;
                 }
                 Opcode::RST30 => {
-                    mmu.rsv(self.clone());
+                    // mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x30;
@@ -1350,7 +1347,7 @@ impl CPU {
                     self.reset_flag(Flag::N);
                     let offset = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
-                    let mut spn: u16;
+                    let spn: u16;
                     if (offset & 0x80) == 0x80 {
                         spn = self.sp.wrapping_sub((!offset + 1) as u16);
                     } else {
@@ -1391,7 +1388,7 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::RST38 => {
-                    mmu.rsv(self.clone());
+                    // mmu.rsv(self.clone());
                     self.sp = self.sp.wrapping_sub(2);
                     mmu.write_word(self.sp, self.pc);
                     self.pc = 0x38;
@@ -1407,7 +1404,7 @@ impl CPU {
         Ok(())
     }
 
-    fn exec_ext(&mut self, mmu: &mut MMU) -> Result<(), String> {
+    fn exec_ext(&mut self, mmu: &mut IoDevice) -> Result<(), String> {
         let pc = self.pc;
         self.pc = self.pc.wrapping_add(1);
         match ExtOpcode::from_u8(mmu.read_byte(pc)) {
@@ -2696,7 +2693,7 @@ impl CPU {
         self.m = 2;
     }
 
-    fn call(&mut self, cond: Option<Condition>, mmu: &mut MMU) {
+    fn call(&mut self, cond: Option<Condition>, mmu: &mut IoDevice) {
         self.m = 3;
         if let Some(c) = cond {
             let should_call = match c {
@@ -2715,7 +2712,7 @@ impl CPU {
         }
     }
 
-    fn do_call(&mut self, mmu: &mut MMU) {
+    fn do_call(&mut self, mmu: &mut IoDevice) {
         self.sp = self.sp.wrapping_sub(2);
         mmu.write_word(self.sp, self.pc.wrapping_add(2));
         self.pc = mmu.read_word(self.pc);
@@ -2726,16 +2723,23 @@ impl CPU {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cartridge::Cartridge;
-    use gpu::GPU;
+    use crate::{cartridge::Cartridge, gpu::GPU, timer::Timer};
+    use mockers::Scenario;
     use std::rc::Rc;
-    use timer::Timer;
 
     fn mmu_stub(b1: u8, b2: u8, b3: u8) -> MMU {
         let mut cart_data = [0; 0x148];
         cart_data[0x0] = b1;
         cart_data[0x1] = b2;
         cart_data[0x2] = b3;
+        let cart = Cartridge::new(&cart_data);
+        let timer = Timer::new();
+        let gpu = GPU::new();
+        MMU::new(cart, Rc::new(timer), Rc::new(gpu))
+    }
+
+    fn mmu() -> MMU {
+        let mut cart_data = [0; 0x400];
         let cart = Cartridge::new(&cart_data);
         let timer = Timer::new();
         let gpu = GPU::new();
@@ -3191,6 +3195,33 @@ mod tests {
                 assert_eq!(cpu.get_reg(r), 0xff);
             }
         }
+    }
+
+    #[test]
+    fn test_call() {
+        let mut cpu = CPU::new();
+        let scenario = Scenario::new();
+        let mut mmu = scenario.create_mock_for::<IoDevice>();
+        cpu.sp = 0xfffe;
+        cpu.pc = 0x200;
+
+        scenario.expect(mmu.write_word_call(0xfffc, 0x202).and_return(()));
+        scenario.expect(mmu.read_word_call(0x200).and_return(0x234));
+        cpu.call(None, &mut mmu);
+        assert_eq!(cpu.sp, 0xfffc);
+        assert_eq!(cpu.pc, 0x234);
+
+        cpu.reset_flag(Flag::Z);
+        cpu.call(Some(Condition::Z), &mut mmu);
+        assert_eq!(cpu.sp, 0xfffc);
+        assert_eq!(cpu.pc, 0x236);
+
+        cpu.set_flag(Flag::Z);
+        scenario.expect(mmu.write_word_call(0xfffa, 0x238).and_return(()));
+        scenario.expect(mmu.read_word_call(0x236).and_return(0x334));
+        cpu.call(Some(Condition::Z), &mut mmu);
+        assert_eq!(cpu.sp, 0xfffa);
+        assert_eq!(cpu.pc, 0x334);
     }
 
     #[test]

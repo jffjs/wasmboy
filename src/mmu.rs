@@ -1,9 +1,7 @@
-use cartridge::*;
-use cpu::CPU;
-use emulator::IntFlag;
-use gpu::GPU;
+use crate::{
+    cartridge::*, cpu::CPU, emulator::IntFlag, gpu::GPU, io_device::IoDevice, timer::Timer,
+};
 use std::rc::Rc;
-use timer::Timer;
 
 // TODO: need 0x1fff of e_ram for MBC5, but that breaks wasm
 // maybe break e_ram up into banks (16 banks of 0x2000)
@@ -80,7 +78,21 @@ impl MMU {
         self.rsv.clone()
     }
 
-    pub fn read_byte(&self, addr: u16) -> u8 {
+    fn rom(&self) -> &[u8] {
+        self.cart.rom.as_slice()
+    }
+
+    fn rom_bank(&self) -> u16 {
+        self.cart.rom_bank as u16
+    }
+
+    fn ram_bank(&self) -> u16 {
+        self.cart.ram_bank as u16
+    }
+}
+
+impl IoDevice for MMU {
+    fn read_byte(&self, addr: u16) -> u8 {
         match (addr & 0xf000) >> 12 {
             // ROM bank 0
             0x0 | 0x1 | 0x2 | 0x3 => self.rom()[addr as usize],
@@ -144,11 +156,7 @@ impl MMU {
         }
     }
 
-    pub fn read_word(&self, addr: u16) -> u16 {
-        self.read_byte(addr) as u16 + ((self.read_byte(addr.wrapping_add(1)) as u16) << 8)
-    }
-
-    pub fn write_byte(&mut self, addr: u16, value: u8) {
+    fn write_byte(&mut self, addr: u16, value: u8) {
         match (addr & 0xf000) >> 12 {
             // ROM bank 0
             // Turn external RAM on
@@ -317,30 +325,12 @@ impl MMU {
             _ => (), // Unaddressable
         }
     }
-
-    pub fn write_word(&mut self, addr: u16, value: u16) {
-        self.write_byte(addr, (value & 0xff) as u8);
-        self.write_byte(addr.wrapping_add(1), (value >> 8) as u8);
-    }
-
-    fn rom(&self) -> &[u8] {
-        self.cart.rom.as_slice()
-    }
-
-    fn rom_bank(&self) -> u16 {
-        self.cart.rom_bank as u16
-    }
-
-    fn ram_bank(&self) -> u16 {
-        self.cart.ram_bank as u16
-    }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
-    use gpu::GPU;
-    use timer::Timer;
+    use crate::{gpu::GPU, timer::Timer};
 
     fn timer() -> Rc<Timer> {
         Rc::new(Timer::new())

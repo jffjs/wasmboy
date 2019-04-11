@@ -14,6 +14,7 @@ mod mmu;
 mod opcode;
 mod timer;
 mod utils;
+mod io_device;
 
 use cfg_if::cfg_if;
 use wasm_bindgen::prelude::*;

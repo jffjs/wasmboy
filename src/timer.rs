@@ -1,4 +1,4 @@
-use emulator::IntFlag;
+use crate::emulator::IntFlag;
 use std::cell::Cell;
 
 struct Clock {

@@ -1,11 +1,9 @@
-use cartridge::Cartridge;
-use cpu::CPU;
-use gpu::GPU;
-use mmu::MMU;
+use crate::{
+    cartridge::Cartridge, cpu::CPU, gpu::GPU, io_device::IoDevice, mmu::MMU, timer::Timer,
+};
 use num::ToPrimitive;
 use std::ops::{BitAnd, BitOr, Not};
 use std::rc::Rc;
-use timer::Timer;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
