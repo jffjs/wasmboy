@@ -145,7 +145,7 @@ impl CPU {
                 }
                 Opcode::LD_nn_SP => {
                     let addr = mmu.read_word(self.pc);
-                    self.pc = self.pc.wrapping_add(1);
+                    self.pc = self.pc.wrapping_add(2);
                     mmu.write_word(addr, self.sp);
                     self.m = 5;
                 }
