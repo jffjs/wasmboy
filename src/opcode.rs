@@ -227,7 +227,7 @@ pub enum Opcode {
     RST18 = 0xdf,
     LDH_n_A = 0xe0,
     POPHL = 0xe1,
-    LD_C_A = 0xe2,
+    LDH_C_A = 0xe2,
     // 0xe3, // not supported
     // 0xe4, // not supported
     PUSHHL = 0xe5,
@@ -243,7 +243,7 @@ pub enum Opcode {
     RST28 = 0xef,
     LDHA_n_ = 0xf0,
     POPAF = 0xf1,
-    // 0xf2, // not supported
+    LDHA_C_ = 0xf2,
     DI = 0xf3,
     // 0xf4, // not supported
     PUSHAF = 0xf5,

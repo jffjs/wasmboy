@@ -70,14 +70,6 @@ impl MMU {
         self.write_byte(0xff49, 0xff);
     }
 
-    pub fn rsv(&mut self, cpu: CPU) {
-        self.rsv = cpu;
-    }
-
-    pub fn rrs(&self) -> CPU {
-        self.rsv.clone()
-    }
-
     fn rom(&self) -> &[u8] {
         self.cart.rom.as_slice()
     }
@@ -92,6 +84,14 @@ impl MMU {
 }
 
 impl IoDevice for MMU {
+    fn rsv(&mut self, cpu: CPU) {
+        self.rsv = cpu;
+    }
+
+    fn rrs(&self) -> CPU {
+        self.rsv.clone()
+    }
+
     fn read_byte(&self, addr: u16) -> u8 {
         match (addr & 0xf000) >> 12 {
             // ROM bank 0

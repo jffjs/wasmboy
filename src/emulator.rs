@@ -40,7 +40,7 @@ impl Emulator {
         let fclock = self.cpu.clock_m() + M_CYCLES;
         while self.cpu.clock_m() < fclock {
             // Execute next instruction
-            if !self.cpu.halt() {
+            if !self.cpu.halted() {
                 match self.cpu.exec(&mut self.mmu) {
                     Ok(_) => (),
                     Err(msg) => panic!(msg),
@@ -75,6 +75,11 @@ impl Emulator {
     }
 
     fn check_interrupts(&mut self) {
+        // if self.cpu.ime && self.cpu.halted() {
+        //     self.cpu.halt = false;
+        //     return;
+        // }
+
         if self.cpu.ime && self.mmu.ie() != 0 && self.mmu.iflag() != 0 {
             self.cpu.halt = false;
             self.cpu.ime = false;
@@ -104,7 +109,7 @@ impl Emulator {
 
     #[wasm_bindgen]
     pub fn dbg_step(&mut self, screen: &mut [u8]) {
-        if !self.cpu.halt() {
+        if !self.cpu.halted() {
             self.cpu.exec(&mut self.mmu).expect("CPU exec error.");
         }
 

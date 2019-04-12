@@ -1,3 +1,5 @@
+use crate::cpu::CPU;
+use crate::utils::{hi_byte, lo_byte};
 #[cfg(test)]
 use mockers_derive::mocked;
 
@@ -12,7 +14,12 @@ pub trait IoDevice {
     }
 
     fn write_word(&mut self, addr: u16, value: u16) {
-        self.write_byte(addr, (value & 0xff) as u8);
-        self.write_byte(addr.wrapping_add(1), (value >> 8) as u8);
+        self.write_byte(addr, lo_byte(value));
+        self.write_byte(addr.wrapping_add(1), hi_byte(value));
+    }
+
+    fn rsv(&mut self, cpu: CPU) {}
+    fn rrs(&self) -> CPU {
+        CPU::new()
     }
 }
