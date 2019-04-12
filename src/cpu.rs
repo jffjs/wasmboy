@@ -106,17 +106,14 @@ impl CPU {
     }
 
     pub fn handle_interrupt(&mut self, iflag: IntFlag, mmu: &mut MMU) {
-        // mmu.rsv(self.clone());
-        self.sp = self.sp.wrapping_sub(2);
-        mmu.write_word(self.sp, self.pc);
         match iflag {
-            IntFlag::Vblank => self.pc = 0x40,
-            IntFlag::LCDC => self.pc = 0x48,
-            IntFlag::TimerOverflow => self.pc = 0x50,
-            IntFlag::SerialIO => self.pc = 0x58,
-            IntFlag::JoyPad => self.pc = 0x60,
+            IntFlag::Vblank => self.rst(0x40, mmu),
+            IntFlag::LCDC => self.rst(0x48, mmu),
+            IntFlag::TimerOverflow => self.rst(0x50, mmu),
+            IntFlag::SerialIO => self.rst(0x58, mmu),
+            IntFlag::JoyPad => self.rst(0x60, mmu),
         }
-        self.clock.m += 4;
+        self.clock.m += self.m as u32;
     }
 
     pub fn exec(&mut self, mmu: &mut IoDevice) -> Result<(), String> {
@@ -428,130 +425,50 @@ impl CPU {
                     self.m = 2;
                 }
                 Opcode::LDCA => self.ldrr(Reg::C, Reg::A),
-                Opcode::LDDB => {
-                    self.d = self.b;
-                    self.m = 1;
-                }
-                Opcode::LDDC => {
-                    self.d = self.c;
-                    self.m = 1;
-                }
-                Opcode::LDDD => {
-                    self.m = 1;
-                }
-                Opcode::LDDE => {
-                    self.d = self.e;
-                    self.m = 1;
-                }
-                Opcode::LDDH => {
-                    self.d = self.h;
-                    self.m = 1;
-                }
-                Opcode::LDDL => {
-                    self.d = self.l;
-                    self.m = 1;
-                }
+                Opcode::LDDB => self.ldrr(Reg::D, Reg::B),
+                Opcode::LDDC => self.ldrr(Reg::D, Reg::C),
+                Opcode::LDDD => self.ldrr(Reg::D, Reg::D),
+                Opcode::LDDE => self.ldrr(Reg::D, Reg::E),
+                Opcode::LDDH => self.ldrr(Reg::D, Reg::H),
+                Opcode::LDDL => self.ldrr(Reg::D, Reg::L),
                 Opcode::LDD_HL_ => {
                     self.d = mmu.read_byte(self.hl());
                     self.m = 2;
                 }
-                Opcode::LDDA => {
-                    self.d = self.a;
-                    self.m = 1;
-                }
-                Opcode::LDEB => {
-                    self.e = self.b;
-                    self.m = 1;
-                }
-                Opcode::LDEC => {
-                    self.e = self.c;
-                    self.m = 1;
-                }
-                Opcode::LDED => {
-                    self.e = self.d;
-                    self.m = 1;
-                }
-                Opcode::LDEE => {
-                    self.m = 1;
-                }
-                Opcode::LDEH => {
-                    self.e = self.h;
-                    self.m = 1;
-                }
-                Opcode::LDEL => {
-                    self.e = self.l;
-                    self.m = 1;
-                }
+                Opcode::LDDA => self.ldrr(Reg::D, Reg::A),
+                Opcode::LDEB => self.ldrr(Reg::E, Reg::B),
+                Opcode::LDEC => self.ldrr(Reg::E, Reg::C),
+                Opcode::LDED => self.ldrr(Reg::E, Reg::D),
+                Opcode::LDEE => self.ldrr(Reg::E, Reg::E),
+                Opcode::LDEH => self.ldrr(Reg::E, Reg::H),
+                Opcode::LDEL => self.ldrr(Reg::E, Reg::L),
                 Opcode::LDE_HL_ => {
                     self.e = mmu.read_byte(self.hl());
                     self.m = 2;
                 }
-                Opcode::LDEA => {
-                    self.e = self.a;
-                    self.m = 1;
-                }
-                Opcode::LDHB => {
-                    self.h = self.b;
-                    self.m = 1;
-                }
-                Opcode::LDHC => {
-                    self.h = self.c;
-                    self.m = 1;
-                }
-                Opcode::LDHD => {
-                    self.h = self.d;
-                    self.m = 1;
-                }
-                Opcode::LDHE => {
-                    self.h = self.e;
-                    self.m = 1;
-                }
-                Opcode::LDHH => {
-                    self.m = 1;
-                }
-                Opcode::LDHL => {
-                    self.h = self.l;
-                    self.m = 1;
-                }
+                Opcode::LDEA => self.ldrr(Reg::E, Reg::A),
+                Opcode::LDHB => self.ldrr(Reg::H, Reg::B),
+                Opcode::LDHC => self.ldrr(Reg::H, Reg::C),
+                Opcode::LDHD => self.ldrr(Reg::H, Reg::D),
+                Opcode::LDHE => self.ldrr(Reg::H, Reg::E),
+                Opcode::LDHH => self.ldrr(Reg::H, Reg::H),
+                Opcode::LDHL => self.ldrr(Reg::H, Reg::L),
                 Opcode::LDH_HL_ => {
                     self.h = mmu.read_byte(self.hl());
                     self.m = 2;
                 }
-                Opcode::LDHA => {
-                    self.h = self.a;
-                    self.m = 1;
-                }
-                Opcode::LDLB => {
-                    self.l = self.b;
-                    self.m = 1;
-                }
-                Opcode::LDLC => {
-                    self.l = self.c;
-                    self.m = 1;
-                }
-                Opcode::LDLD => {
-                    self.l = self.d;
-                    self.m = 1;
-                }
-                Opcode::LDLE => {
-                    self.l = self.e;
-                    self.m = 1;
-                }
-                Opcode::LDLH => {
-                    self.l = self.h;
-                    self.m = 1;
-                }
-                Opcode::LDLL => {
-                    self.m = 1;
-                }
+                Opcode::LDHA => self.ldrr(Reg::H, Reg::A),
+                Opcode::LDLB => self.ldrr(Reg::L, Reg::L),
+                Opcode::LDLC => self.ldrr(Reg::L, Reg::L),
+                Opcode::LDLD => self.ldrr(Reg::L, Reg::L),
+                Opcode::LDLE => self.ldrr(Reg::L, Reg::L),
+                Opcode::LDLH => self.ldrr(Reg::L, Reg::L),
+                Opcode::LDLL => self.ldrr(Reg::L, Reg::L),
                 Opcode::LDL_HL_ => {
                     self.l = mmu.read_byte(self.hl());
                     self.m = 2;
                 }
-                Opcode::LDLA => {
-                    self.l = self.a;
-                    self.m = 1;
-                }
+                Opcode::LDLA => self.ldrr(Reg::L, Reg::A),
                 Opcode::LD_HL_B => {
                     mmu.write_byte(self.hl(), self.b);
                     self.m = 2;
@@ -584,37 +501,17 @@ impl CPU {
                     mmu.write_byte(self.hl(), self.a);
                     self.m = 2;
                 }
-                Opcode::LDAB => {
-                    self.a = self.b;
-                    self.m = 1;
-                }
-                Opcode::LDAC => {
-                    self.a = self.c;
-                    self.m = 1;
-                }
-                Opcode::LDAD => {
-                    self.a = self.d;
-                    self.m = 1;
-                }
-                Opcode::LDAE => {
-                    self.a = self.e;
-                    self.m = 1;
-                }
-                Opcode::LDAH => {
-                    self.a = self.h;
-                    self.m = 1;
-                }
-                Opcode::LDAL => {
-                    self.a = self.l;
-                    self.m = 1;
-                }
+                Opcode::LDAB => self.ldrr(Reg::A, Reg::B),
+                Opcode::LDAC => self.ldrr(Reg::A, Reg::C),
+                Opcode::LDAD => self.ldrr(Reg::A, Reg::D),
+                Opcode::LDAE => self.ldrr(Reg::A, Reg::E),
+                Opcode::LDAH => self.ldrr(Reg::A, Reg::H),
+                Opcode::LDAL => self.ldrr(Reg::A, Reg::L),
                 Opcode::LDA_HL_ => {
                     self.a = mmu.read_byte(self.hl());
                     self.m = 2;
                 }
-                Opcode::LDAA => {
-                    self.m = 1;
-                }
+                Opcode::LDAA => self.ldrr(Reg::A, Reg::A),
                 Opcode::ADDAB => {
                     let v = self.b;
                     self.add(v);
@@ -911,13 +808,7 @@ impl CPU {
                     self.add(value);
                     self.m += 1;
                 }
-                Opcode::RST0 => {
-                    // mmu.rsv(self.clone());
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc);
-                    self.pc = 0;
-                    self.m = 4;
-                }
+                Opcode::RST0 => self.rst(0, mmu),
                 Opcode::RETZ => self.ret(Some(Condition::Z), mmu),
                 Opcode::RET => self.ret(None, mmu),
                 Opcode::JPZnn => self.jump(Some(Condition::Z), mmu),
@@ -930,13 +821,7 @@ impl CPU {
                     self.adc(value);
                     self.m += 1;
                 }
-                Opcode::RST8 => {
-                    // mmu.rsv(self.clone());
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc);
-                    self.pc = 0x8;
-                    self.m = 4;
-                }
+                Opcode::RST8 => self.rst(0x8, mmu),
                 Opcode::RETNC => self.ret(Some(Condition::NC), mmu),
                 Opcode::POPDE => {
                     self.e = mmu.read_byte(self.sp);
@@ -960,13 +845,7 @@ impl CPU {
                     self.sub(value);
                     self.m += 1;
                 }
-                Opcode::RST10 => {
-                    // mmu.rsv(self.clone());
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc);
-                    self.pc = 0x10;
-                    self.m = 4;
-                }
+                Opcode::RST10 => self.rst(0x10, mmu),
                 Opcode::RETC => self.ret(Some(Condition::C), mmu),
                 Opcode::RETI => {
                     self.do_ret(mmu);
@@ -982,13 +861,7 @@ impl CPU {
                     self.sbc(value);
                     self.m += 1;
                 }
-                Opcode::RST18 => {
-                    // mmu.rsv(self.clone());
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc);
-                    self.pc = 0x18;
-                    self.m = 4;
-                }
+                Opcode::RST18 => self.rst(0x18, mmu),
                 Opcode::LDH_n_A => {
                     let n = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
@@ -1021,13 +894,7 @@ impl CPU {
                     self.and(n);
                     self.m += 1;
                 }
-                Opcode::RST20 => {
-                    // mmu.rsv(self.clone());
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc);
-                    self.pc = 0x20;
-                    self.m = 4;
-                }
+                Opcode::RST20 => self.rst(0x20, mmu),
                 Opcode::ADDSPn => {
                     self.reset_flag(Flag::Z);
                     self.reset_flag(Flag::N);
@@ -1056,13 +923,7 @@ impl CPU {
                     self.xor(n);
                     self.m += 1;
                 }
-                Opcode::RST28 => {
-                    // mmu.rsv(self.clone());
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc);
-                    self.pc = 0x28;
-                    self.m = 4;
-                }
+                Opcode::RST28 => self.rst(0x28, mmu),
                 Opcode::LDHA_n_ => {
                     let n = mmu.read_byte(self.pc);
                     self.pc = self.pc.wrapping_add(1);
@@ -1094,13 +955,7 @@ impl CPU {
                     self.or(n);
                     self.m += 1;
                 }
-                Opcode::RST30 => {
-                    // mmu.rsv(self.clone());
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc);
-                    self.pc = 0x30;
-                    self.m = 4;
-                }
+                Opcode::RST30 => self.rst(0x30, mmu),
                 Opcode::LDHLSPn => {
                     self.reset_flag(Flag::Z);
                     self.reset_flag(Flag::N);
@@ -1146,13 +1001,7 @@ impl CPU {
                     }
                     self.m = 2;
                 }
-                Opcode::RST38 => {
-                    // mmu.rsv(self.clone());
-                    self.sp = self.sp.wrapping_sub(2);
-                    mmu.write_word(self.sp, self.pc);
-                    self.pc = 0x38;
-                    self.m = 4;
-                }
+                Opcode::RST38 => self.rst(0x38, mmu),
             },
             None => {
                 // println!("Unsupported operation: {}", mmu.read_byte(pc));
@@ -1303,581 +1152,271 @@ impl CPU {
                     self.bit_val(value, 1);
                     self.m = 3;
                 }
-                ExtOpcode::BIT1A => {
-                    self.bit(Reg::A, 1);
-                }
-                ExtOpcode::BIT2B => {
-                    self.bit(Reg::B, 2);
-                }
-                ExtOpcode::BIT2C => {
-                    self.bit(Reg::C, 2);
-                }
-                ExtOpcode::BIT2D => {
-                    self.bit(Reg::D, 2);
-                }
-                ExtOpcode::BIT2E => {
-                    self.bit(Reg::E, 2);
-                }
-                ExtOpcode::BIT2H => {
-                    self.bit(Reg::H, 2);
-                }
-                ExtOpcode::BIT2L => {
-                    self.bit(Reg::L, 2);
-                }
+                ExtOpcode::BIT1A => self.bit(Reg::A, 1),
+                ExtOpcode::BIT2B => self.bit(Reg::B, 2),
+                ExtOpcode::BIT2C => self.bit(Reg::C, 2),
+                ExtOpcode::BIT2D => self.bit(Reg::D, 2),
+                ExtOpcode::BIT2E => self.bit(Reg::E, 2),
+                ExtOpcode::BIT2H => self.bit(Reg::H, 2),
+                ExtOpcode::BIT2L => self.bit(Reg::L, 2),
                 ExtOpcode::BIT2_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.bit_val(value, 2);
                     self.m = 3;
                 }
-                ExtOpcode::BIT2A => {
-                    self.bit(Reg::A, 2);
-                }
-                ExtOpcode::BIT3B => {
-                    self.bit(Reg::B, 3);
-                }
-                ExtOpcode::BIT3C => {
-                    self.bit(Reg::C, 3);
-                }
-                ExtOpcode::BIT3D => {
-                    self.bit(Reg::D, 3);
-                }
-                ExtOpcode::BIT3E => {
-                    self.bit(Reg::E, 3);
-                }
-                ExtOpcode::BIT3H => {
-                    self.bit(Reg::H, 3);
-                }
-                ExtOpcode::BIT3L => {
-                    self.bit(Reg::L, 3);
-                }
+                ExtOpcode::BIT2A => self.bit(Reg::A, 2),
+                ExtOpcode::BIT3B => self.bit(Reg::B, 3),
+                ExtOpcode::BIT3C => self.bit(Reg::C, 3),
+                ExtOpcode::BIT3D => self.bit(Reg::D, 3),
+                ExtOpcode::BIT3E => self.bit(Reg::E, 3),
+                ExtOpcode::BIT3H => self.bit(Reg::H, 3),
+                ExtOpcode::BIT3L => self.bit(Reg::L, 3),
                 ExtOpcode::BIT3_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.bit_val(value, 3);
                     self.m = 3;
                 }
-                ExtOpcode::BIT3A => {
-                    self.bit(Reg::A, 3);
-                }
-                ExtOpcode::BIT4B => {
-                    self.bit(Reg::B, 4);
-                }
-                ExtOpcode::BIT4C => {
-                    self.bit(Reg::C, 4);
-                }
-                ExtOpcode::BIT4D => {
-                    self.bit(Reg::D, 4);
-                }
-                ExtOpcode::BIT4E => {
-                    self.bit(Reg::E, 4);
-                }
-                ExtOpcode::BIT4H => {
-                    self.bit(Reg::H, 4);
-                }
-                ExtOpcode::BIT4L => {
-                    self.bit(Reg::L, 4);
-                }
+                ExtOpcode::BIT3A => self.bit(Reg::A, 3),
+                ExtOpcode::BIT4B => self.bit(Reg::B, 4),
+                ExtOpcode::BIT4C => self.bit(Reg::C, 4),
+                ExtOpcode::BIT4D => self.bit(Reg::D, 4),
+                ExtOpcode::BIT4E => self.bit(Reg::E, 4),
+                ExtOpcode::BIT4H => self.bit(Reg::H, 4),
+                ExtOpcode::BIT4L => self.bit(Reg::L, 4),
                 ExtOpcode::BIT4_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.bit_val(value, 4);
                     self.m = 3;
                 }
-                ExtOpcode::BIT4A => {
-                    self.bit(Reg::A, 4);
-                }
-                ExtOpcode::BIT5B => {
-                    self.bit(Reg::B, 5);
-                }
-                ExtOpcode::BIT5C => {
-                    self.bit(Reg::C, 5);
-                }
-                ExtOpcode::BIT5D => {
-                    self.bit(Reg::D, 5);
-                }
-                ExtOpcode::BIT5E => {
-                    self.bit(Reg::E, 5);
-                }
-                ExtOpcode::BIT5H => {
-                    self.bit(Reg::H, 5);
-                }
-                ExtOpcode::BIT5L => {
-                    self.bit(Reg::L, 5);
-                }
+                ExtOpcode::BIT4A => self.bit(Reg::A, 4),
+                ExtOpcode::BIT5B => self.bit(Reg::B, 5),
+                ExtOpcode::BIT5C => self.bit(Reg::C, 5),
+                ExtOpcode::BIT5D => self.bit(Reg::D, 5),
+                ExtOpcode::BIT5E => self.bit(Reg::E, 5),
+                ExtOpcode::BIT5H => self.bit(Reg::H, 5),
+                ExtOpcode::BIT5L => self.bit(Reg::L, 5),
                 ExtOpcode::BIT5_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.bit_val(value, 5);
                     self.m = 3;
                 }
-                ExtOpcode::BIT5A => {
-                    self.bit(Reg::A, 5);
-                }
-                ExtOpcode::BIT6B => {
-                    self.bit(Reg::B, 6);
-                }
-                ExtOpcode::BIT6C => {
-                    self.bit(Reg::C, 6);
-                }
-                ExtOpcode::BIT6D => {
-                    self.bit(Reg::D, 6);
-                }
-                ExtOpcode::BIT6E => {
-                    self.bit(Reg::E, 6);
-                }
-                ExtOpcode::BIT6H => {
-                    self.bit(Reg::H, 6);
-                }
-                ExtOpcode::BIT6L => {
-                    self.bit(Reg::L, 6);
-                }
+                ExtOpcode::BIT5A => self.bit(Reg::A, 5),
+                ExtOpcode::BIT6B => self.bit(Reg::B, 6),
+                ExtOpcode::BIT6C => self.bit(Reg::C, 6),
+                ExtOpcode::BIT6D => self.bit(Reg::D, 6),
+                ExtOpcode::BIT6E => self.bit(Reg::E, 6),
+                ExtOpcode::BIT6H => self.bit(Reg::H, 6),
+                ExtOpcode::BIT6L => self.bit(Reg::L, 6),
                 ExtOpcode::BIT6_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.bit_val(value, 6);
                     self.m = 3;
                 }
-                ExtOpcode::BIT6A => {
-                    self.bit(Reg::A, 6);
-                }
-                ExtOpcode::BIT7B => {
-                    self.bit(Reg::B, 7);
-                }
-                ExtOpcode::BIT7C => {
-                    self.bit(Reg::C, 7);
-                }
-                ExtOpcode::BIT7D => {
-                    self.bit(Reg::D, 7);
-                }
-                ExtOpcode::BIT7E => {
-                    self.bit(Reg::E, 7);
-                }
-                ExtOpcode::BIT7H => {
-                    self.bit(Reg::H, 7);
-                }
-                ExtOpcode::BIT7L => {
-                    self.bit(Reg::L, 7);
-                }
+                ExtOpcode::BIT6A => self.bit(Reg::A, 6),
+                ExtOpcode::BIT7B => self.bit(Reg::B, 7),
+                ExtOpcode::BIT7C => self.bit(Reg::C, 7),
+                ExtOpcode::BIT7D => self.bit(Reg::D, 7),
+                ExtOpcode::BIT7E => self.bit(Reg::E, 7),
+                ExtOpcode::BIT7H => self.bit(Reg::H, 7),
+                ExtOpcode::BIT7L => self.bit(Reg::L, 7),
                 ExtOpcode::BIT7_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     self.bit_val(value, 7);
                     self.m = 3;
                 }
-                ExtOpcode::BIT7A => {
-                    self.bit(Reg::A, 7);
-                }
-                ExtOpcode::RES0B => {
-                    self.res(Reg::B, 0);
-                }
-                ExtOpcode::RES0C => {
-                    self.res(Reg::C, 0);
-                }
-                ExtOpcode::RES0D => {
-                    self.res(Reg::D, 0);
-                }
-                ExtOpcode::RES0E => {
-                    self.res(Reg::E, 0);
-                }
-                ExtOpcode::RES0H => {
-                    self.res(Reg::H, 0);
-                }
-                ExtOpcode::RES0L => {
-                    self.res(Reg::L, 0);
-                }
+                ExtOpcode::BIT7A => self.bit(Reg::A, 7),
+                ExtOpcode::RES0B => self.res(Reg::B, 0),
+                ExtOpcode::RES0C => self.res(Reg::C, 0),
+                ExtOpcode::RES0D => self.res(Reg::D, 0),
+                ExtOpcode::RES0E => self.res(Reg::E, 0),
+                ExtOpcode::RES0H => self.res(Reg::H, 0),
+                ExtOpcode::RES0L => self.res(Reg::L, 0),
                 ExtOpcode::RES0_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), reset_bit(0, value));
                     self.m = 4;
                 }
-                ExtOpcode::RES0A => {
-                    self.res(Reg::A, 0);
-                }
-                ExtOpcode::RES1B => {
-                    self.res(Reg::B, 1);
-                }
-                ExtOpcode::RES1C => {
-                    self.res(Reg::C, 1);
-                }
-                ExtOpcode::RES1D => {
-                    self.res(Reg::D, 1);
-                }
-                ExtOpcode::RES1E => {
-                    self.res(Reg::E, 1);
-                }
-                ExtOpcode::RES1H => {
-                    self.res(Reg::H, 1);
-                }
-                ExtOpcode::RES1L => {
-                    self.res(Reg::L, 1);
-                }
+                ExtOpcode::RES0A => self.res(Reg::A, 0),
+                ExtOpcode::RES1B => self.res(Reg::B, 1),
+                ExtOpcode::RES1C => self.res(Reg::C, 1),
+                ExtOpcode::RES1D => self.res(Reg::D, 1),
+                ExtOpcode::RES1E => self.res(Reg::E, 1),
+                ExtOpcode::RES1H => self.res(Reg::H, 1),
+                ExtOpcode::RES1L => self.res(Reg::L, 1),
                 ExtOpcode::RES1_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), reset_bit(1, value));
                     self.m = 4;
                 }
-                ExtOpcode::RES1A => {
-                    self.res(Reg::A, 1);
-                }
-                ExtOpcode::RES2B => {
-                    self.res(Reg::B, 2);
-                }
-                ExtOpcode::RES2C => {
-                    self.res(Reg::C, 2);
-                }
-                ExtOpcode::RES2D => {
-                    self.res(Reg::D, 2);
-                }
-                ExtOpcode::RES2E => {
-                    self.res(Reg::E, 2);
-                }
-                ExtOpcode::RES2H => {
-                    self.res(Reg::H, 2);
-                }
-                ExtOpcode::RES2L => {
-                    self.res(Reg::L, 2);
-                }
+                ExtOpcode::RES1A => self.res(Reg::A, 1),
+                ExtOpcode::RES2B => self.res(Reg::B, 2),
+                ExtOpcode::RES2C => self.res(Reg::C, 2),
+                ExtOpcode::RES2D => self.res(Reg::D, 2),
+                ExtOpcode::RES2E => self.res(Reg::E, 2),
+                ExtOpcode::RES2H => self.res(Reg::H, 2),
+                ExtOpcode::RES2L => self.res(Reg::L, 2),
                 ExtOpcode::RES2_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), reset_bit(2, value));
                     self.m = 4;
                 }
-                ExtOpcode::RES2A => {
-                    self.res(Reg::A, 2);
-                }
-                ExtOpcode::RES3B => {
-                    self.res(Reg::B, 3);
-                }
-                ExtOpcode::RES3C => {
-                    self.res(Reg::C, 3);
-                }
-                ExtOpcode::RES3D => {
-                    self.res(Reg::D, 3);
-                }
-                ExtOpcode::RES3E => {
-                    self.res(Reg::E, 3);
-                }
-                ExtOpcode::RES3H => {
-                    self.res(Reg::H, 3);
-                }
-                ExtOpcode::RES3L => {
-                    self.res(Reg::L, 3);
-                }
+                ExtOpcode::RES2A => self.res(Reg::A, 2),
+                ExtOpcode::RES3B => self.res(Reg::B, 3),
+                ExtOpcode::RES3C => self.res(Reg::C, 3),
+                ExtOpcode::RES3D => self.res(Reg::D, 3),
+                ExtOpcode::RES3E => self.res(Reg::E, 3),
+                ExtOpcode::RES3H => self.res(Reg::H, 3),
+                ExtOpcode::RES3L => self.res(Reg::L, 3),
                 ExtOpcode::RES3_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), reset_bit(3, value));
                     self.m = 4;
                 }
-                ExtOpcode::RES3A => {
-                    self.res(Reg::A, 3);
-                }
-                ExtOpcode::RES4B => {
-                    self.res(Reg::B, 4);
-                }
-                ExtOpcode::RES4C => {
-                    self.res(Reg::C, 4);
-                }
-                ExtOpcode::RES4D => {
-                    self.res(Reg::D, 4);
-                }
-                ExtOpcode::RES4E => {
-                    self.res(Reg::E, 4);
-                }
-                ExtOpcode::RES4H => {
-                    self.res(Reg::H, 4);
-                }
-                ExtOpcode::RES4L => {
-                    self.res(Reg::L, 4);
-                }
+                ExtOpcode::RES3A => self.res(Reg::A, 3),
+                ExtOpcode::RES4B => self.res(Reg::B, 4),
+                ExtOpcode::RES4C => self.res(Reg::C, 4),
+                ExtOpcode::RES4D => self.res(Reg::D, 4),
+                ExtOpcode::RES4E => self.res(Reg::E, 4),
+                ExtOpcode::RES4H => self.res(Reg::H, 4),
+                ExtOpcode::RES4L => self.res(Reg::L, 4),
                 ExtOpcode::RES4_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), reset_bit(4, value));
                     self.m = 4;
                 }
-                ExtOpcode::RES4A => {
-                    self.res(Reg::A, 4);
-                }
-                ExtOpcode::RES5B => {
-                    self.res(Reg::B, 5);
-                }
-                ExtOpcode::RES5C => {
-                    self.res(Reg::C, 5);
-                }
-                ExtOpcode::RES5D => {
-                    self.res(Reg::D, 5);
-                }
-                ExtOpcode::RES5E => {
-                    self.res(Reg::E, 5);
-                }
-                ExtOpcode::RES5H => {
-                    self.res(Reg::H, 5);
-                }
-                ExtOpcode::RES5L => {
-                    self.res(Reg::L, 5);
-                }
+                ExtOpcode::RES4A => self.res(Reg::A, 4),
+                ExtOpcode::RES5B => self.res(Reg::B, 5),
+                ExtOpcode::RES5C => self.res(Reg::C, 5),
+                ExtOpcode::RES5D => self.res(Reg::D, 5),
+                ExtOpcode::RES5E => self.res(Reg::E, 5),
+                ExtOpcode::RES5H => self.res(Reg::H, 5),
+                ExtOpcode::RES5L => self.res(Reg::L, 5),
                 ExtOpcode::RES5_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), reset_bit(5, value));
                     self.m = 4;
                 }
-                ExtOpcode::RES5A => {
-                    self.res(Reg::A, 5);
-                }
-                ExtOpcode::RES6B => {
-                    self.res(Reg::B, 6);
-                }
-                ExtOpcode::RES6C => {
-                    self.res(Reg::C, 6);
-                }
-                ExtOpcode::RES6D => {
-                    self.res(Reg::D, 6);
-                }
-                ExtOpcode::RES6E => {
-                    self.res(Reg::E, 6);
-                }
-                ExtOpcode::RES6H => {
-                    self.res(Reg::H, 6);
-                }
-                ExtOpcode::RES6L => {
-                    self.res(Reg::L, 6);
-                }
+                ExtOpcode::RES5A => self.res(Reg::A, 5),
+                ExtOpcode::RES6B => self.res(Reg::B, 6),
+                ExtOpcode::RES6C => self.res(Reg::C, 6),
+                ExtOpcode::RES6D => self.res(Reg::D, 6),
+                ExtOpcode::RES6E => self.res(Reg::E, 6),
+                ExtOpcode::RES6H => self.res(Reg::H, 6),
+                ExtOpcode::RES6L => self.res(Reg::L, 6),
                 ExtOpcode::RES6_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), reset_bit(6, value));
                     self.m = 4;
                 }
-                ExtOpcode::RES6A => {
-                    self.res(Reg::A, 6);
-                }
-                ExtOpcode::RES7B => {
-                    self.res(Reg::B, 7);
-                }
-                ExtOpcode::RES7C => {
-                    self.res(Reg::C, 7);
-                }
-                ExtOpcode::RES7D => {
-                    self.res(Reg::D, 7);
-                }
-                ExtOpcode::RES7E => {
-                    self.res(Reg::E, 7);
-                }
-                ExtOpcode::RES7H => {
-                    self.res(Reg::H, 7);
-                }
-                ExtOpcode::RES7L => {
-                    self.res(Reg::L, 7);
-                }
+                ExtOpcode::RES6A => self.res(Reg::A, 6),
+                ExtOpcode::RES7B => self.res(Reg::B, 7),
+                ExtOpcode::RES7C => self.res(Reg::C, 7),
+                ExtOpcode::RES7D => self.res(Reg::D, 7),
+                ExtOpcode::RES7E => self.res(Reg::E, 7),
+                ExtOpcode::RES7H => self.res(Reg::H, 7),
+                ExtOpcode::RES7L => self.res(Reg::L, 7),
                 ExtOpcode::RES7_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), reset_bit(7, value));
                     self.m = 4;
                 }
-                ExtOpcode::RES7A => {
-                    self.res(Reg::A, 7);
-                }
-                ExtOpcode::SET0B => {
-                    self.set(Reg::B, 0);
-                }
-                ExtOpcode::SET0C => {
-                    self.set(Reg::C, 0);
-                }
-                ExtOpcode::SET0D => {
-                    self.set(Reg::D, 0);
-                }
-                ExtOpcode::SET0E => {
-                    self.set(Reg::E, 0);
-                }
-                ExtOpcode::SET0H => {
-                    self.set(Reg::H, 0);
-                }
-                ExtOpcode::SET0L => {
-                    self.set(Reg::L, 0);
-                }
+                ExtOpcode::RES7A => self.res(Reg::A, 7),
+                ExtOpcode::SET0B => self.set(Reg::B, 0),
+                ExtOpcode::SET0C => self.set(Reg::C, 0),
+                ExtOpcode::SET0D => self.set(Reg::D, 0),
+                ExtOpcode::SET0E => self.set(Reg::E, 0),
+                ExtOpcode::SET0H => self.set(Reg::H, 0),
+                ExtOpcode::SET0L => self.set(Reg::L, 0),
                 ExtOpcode::SET0_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), set_bit(0, value));
                     self.m = 4;
                 }
-                ExtOpcode::SET0A => {
-                    self.set(Reg::A, 0);
-                }
-                ExtOpcode::SET1B => {
-                    self.set(Reg::B, 1);
-                }
-                ExtOpcode::SET1C => {
-                    self.set(Reg::C, 1);
-                }
-                ExtOpcode::SET1D => {
-                    self.set(Reg::D, 1);
-                }
-                ExtOpcode::SET1E => {
-                    self.set(Reg::E, 1);
-                }
-                ExtOpcode::SET1H => {
-                    self.set(Reg::H, 1);
-                }
-                ExtOpcode::SET1L => {
-                    self.set(Reg::L, 1);
-                }
+                ExtOpcode::SET0A => self.set(Reg::A, 0),
+                ExtOpcode::SET1B => self.set(Reg::B, 1),
+                ExtOpcode::SET1C => self.set(Reg::C, 1),
+                ExtOpcode::SET1D => self.set(Reg::D, 1),
+                ExtOpcode::SET1E => self.set(Reg::E, 1),
+                ExtOpcode::SET1H => self.set(Reg::H, 1),
+                ExtOpcode::SET1L => self.set(Reg::L, 1),
                 ExtOpcode::SET1_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), set_bit(1, value));
                     self.m = 4;
                 }
-                ExtOpcode::SET1A => {
-                    self.set(Reg::A, 1);
-                }
-                ExtOpcode::SET2B => {
-                    self.set(Reg::B, 2);
-                }
-                ExtOpcode::SET2C => {
-                    self.set(Reg::C, 2);
-                }
-                ExtOpcode::SET2D => {
-                    self.set(Reg::D, 2);
-                }
-                ExtOpcode::SET2E => {
-                    self.set(Reg::E, 2);
-                }
-                ExtOpcode::SET2H => {
-                    self.set(Reg::H, 2);
-                }
-                ExtOpcode::SET2L => {
-                    self.set(Reg::L, 2);
-                }
+                ExtOpcode::SET1A => self.set(Reg::A, 1),
+                ExtOpcode::SET2B => self.set(Reg::B, 2),
+                ExtOpcode::SET2C => self.set(Reg::C, 2),
+                ExtOpcode::SET2D => self.set(Reg::D, 2),
+                ExtOpcode::SET2E => self.set(Reg::E, 2),
+                ExtOpcode::SET2H => self.set(Reg::H, 2),
+                ExtOpcode::SET2L => self.set(Reg::L, 2),
                 ExtOpcode::SET2_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), set_bit(2, value));
                     self.m = 4;
                 }
-                ExtOpcode::SET2A => {
-                    self.set(Reg::A, 2);
-                }
-                ExtOpcode::SET3B => {
-                    self.set(Reg::B, 3);
-                }
-                ExtOpcode::SET3C => {
-                    self.set(Reg::C, 3);
-                }
-                ExtOpcode::SET3D => {
-                    self.set(Reg::D, 3);
-                }
-                ExtOpcode::SET3E => {
-                    self.set(Reg::E, 3);
-                }
-                ExtOpcode::SET3H => {
-                    self.set(Reg::H, 3);
-                }
-                ExtOpcode::SET3L => {
-                    self.set(Reg::L, 3);
-                }
+                ExtOpcode::SET2A => self.set(Reg::A, 2),
+                ExtOpcode::SET3B => self.set(Reg::B, 3),
+                ExtOpcode::SET3C => self.set(Reg::C, 3),
+                ExtOpcode::SET3D => self.set(Reg::D, 3),
+                ExtOpcode::SET3E => self.set(Reg::E, 3),
+                ExtOpcode::SET3H => self.set(Reg::H, 3),
+                ExtOpcode::SET3L => self.set(Reg::L, 3),
                 ExtOpcode::SET3_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), set_bit(3, value));
                     self.m = 4;
                 }
-                ExtOpcode::SET3A => {
-                    self.set(Reg::A, 3);
-                }
-                ExtOpcode::SET4B => {
-                    self.set(Reg::B, 4);
-                }
-                ExtOpcode::SET4C => {
-                    self.set(Reg::C, 4);
-                }
-                ExtOpcode::SET4D => {
-                    self.set(Reg::D, 4);
-                }
-                ExtOpcode::SET4E => {
-                    self.set(Reg::E, 4);
-                }
-                ExtOpcode::SET4H => {
-                    self.set(Reg::H, 4);
-                }
-                ExtOpcode::SET4L => {
-                    self.set(Reg::L, 4);
-                }
+                ExtOpcode::SET3A => self.set(Reg::A, 3),
+                ExtOpcode::SET4B => self.set(Reg::B, 4),
+                ExtOpcode::SET4C => self.set(Reg::C, 4),
+                ExtOpcode::SET4D => self.set(Reg::D, 4),
+                ExtOpcode::SET4E => self.set(Reg::E, 4),
+                ExtOpcode::SET4H => self.set(Reg::H, 4),
+                ExtOpcode::SET4L => self.set(Reg::L, 4),
                 ExtOpcode::SET4_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), set_bit(4, value));
                     self.m = 4;
                 }
-                ExtOpcode::SET4A => {
-                    self.set(Reg::A, 4);
-                }
-                ExtOpcode::SET5B => {
-                    self.set(Reg::B, 5);
-                }
-                ExtOpcode::SET5C => {
-                    self.set(Reg::C, 5);
-                }
-                ExtOpcode::SET5D => {
-                    self.set(Reg::D, 5);
-                }
-                ExtOpcode::SET5E => {
-                    self.set(Reg::E, 5);
-                }
-                ExtOpcode::SET5H => {
-                    self.set(Reg::H, 5);
-                }
-                ExtOpcode::SET5L => {
-                    self.set(Reg::L, 5);
-                }
+                ExtOpcode::SET4A => self.set(Reg::A, 4),
+                ExtOpcode::SET5B => self.set(Reg::B, 5),
+                ExtOpcode::SET5C => self.set(Reg::C, 5),
+                ExtOpcode::SET5D => self.set(Reg::D, 5),
+                ExtOpcode::SET5E => self.set(Reg::E, 5),
+                ExtOpcode::SET5H => self.set(Reg::H, 5),
+                ExtOpcode::SET5L => self.set(Reg::L, 5),
                 ExtOpcode::SET5_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), set_bit(5, value));
                     self.m = 4;
                 }
-                ExtOpcode::SET5A => {
-                    self.set(Reg::A, 5);
-                }
-                ExtOpcode::SET6B => {
-                    self.set(Reg::B, 6);
-                }
-                ExtOpcode::SET6C => {
-                    self.set(Reg::C, 6);
-                }
-                ExtOpcode::SET6D => {
-                    self.set(Reg::D, 6);
-                }
-                ExtOpcode::SET6E => {
-                    self.set(Reg::E, 6);
-                }
-                ExtOpcode::SET6H => {
-                    self.set(Reg::H, 6);
-                }
-                ExtOpcode::SET6L => {
-                    self.set(Reg::L, 6);
-                }
+                ExtOpcode::SET5A => self.set(Reg::A, 5),
+                ExtOpcode::SET6B => self.set(Reg::B, 6),
+                ExtOpcode::SET6C => self.set(Reg::C, 6),
+                ExtOpcode::SET6D => self.set(Reg::D, 6),
+                ExtOpcode::SET6E => self.set(Reg::E, 6),
+                ExtOpcode::SET6H => self.set(Reg::H, 6),
+                ExtOpcode::SET6L => self.set(Reg::L, 6),
                 ExtOpcode::SET6_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), set_bit(6, value));
                     self.m = 4;
                 }
-                ExtOpcode::SET6A => {
-                    self.set(Reg::A, 6);
-                }
-                ExtOpcode::SET7B => {
-                    self.set(Reg::B, 7);
-                }
-                ExtOpcode::SET7C => {
-                    self.set(Reg::C, 7);
-                }
-                ExtOpcode::SET7D => {
-                    self.set(Reg::D, 7);
-                }
-                ExtOpcode::SET7E => {
-                    self.set(Reg::E, 7);
-                }
-                ExtOpcode::SET7H => {
-                    self.set(Reg::H, 7);
-                }
-                ExtOpcode::SET7L => {
-                    self.set(Reg::L, 7);
-                }
+                ExtOpcode::SET6A => self.set(Reg::A, 6),
+                ExtOpcode::SET7B => self.set(Reg::B, 7),
+                ExtOpcode::SET7C => self.set(Reg::C, 7),
+                ExtOpcode::SET7D => self.set(Reg::D, 7),
+                ExtOpcode::SET7E => self.set(Reg::E, 7),
+                ExtOpcode::SET7H => self.set(Reg::H, 7),
+                ExtOpcode::SET7L => self.set(Reg::L, 7),
                 ExtOpcode::SET7_HL_ => {
                     let value = mmu.read_byte(self.hl());
                     mmu.write_byte(self.hl(), set_bit(7, value));
                     self.m = 4;
                 }
-                ExtOpcode::SET7A => {
-                    self.set(Reg::A, 7);
-                }
+                ExtOpcode::SET7A => self.set(Reg::A, 7),
             },
             None => {
                 println!("Unsupported ext operation: {:?}", mmu.read_byte(pc));
@@ -2418,6 +1957,14 @@ impl CPU {
         self.pc = mmu.read_word(self.sp);
         self.sp = self.sp.wrapping_add(2);
         self.m += 2;
+    }
+
+    fn rst(&mut self, addr: u16, mmu: &mut IoDevice) {
+        // mmu.rsv(self.clone());
+        self.sp = self.sp.wrapping_sub(2);
+        mmu.write_word(self.sp, self.pc);
+        self.pc = addr;
+        self.m = 4;
     }
 }
 
