@@ -1,7 +1,8 @@
 use crate::{
     cartridge::Cartridge, cpu::CPU, gpu::GPU, io_device::IoDevice, mmu::MMU, timer::Timer,
+    utils::test_bit,
 };
-use num::ToPrimitive;
+use num::{FromPrimitive, ToPrimitive};
 use std::ops::{BitAnd, BitOr, Not};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -39,28 +40,14 @@ impl Emulator {
         const M_CYCLES: u32 = (144 + 10) * 114;
         let fclock = self.cpu.clock_m() + M_CYCLES;
         while self.cpu.clock_m() < fclock {
-            // Execute next instruction
-            if !self.cpu.halted() {
-                match self.cpu.exec(&mut self.mmu) {
-                    Ok(_) => (),
-                    Err(msg) => panic!(msg),
-                }
-            }
-
-            // Run interrupt routine
-            self.check_interrupts();
-
-            let interrupts = self.gpu.execute(self.cpu.m(), screen);
-            for int in interrupts {
-                if int == IntFlag::Vblank {
-                    // TODO: add screen render hook here
-                }
-                self.mmu.set_iflag(int);
-            }
-
+            self.cpu.exec(&mut self.mmu);
+            let mut interrupts: Vec<IntFlag> = Vec::new();
             if let Some(timer_int) = self.timer.inc(self.cpu.m()) {
-                self.mmu.set_iflag(timer_int);
+                interrupts.push(timer_int);
             }
+            let mut gpu_interrupts = self.gpu.execute(self.cpu.m(), screen);
+            interrupts.append(&mut gpu_interrupts);
+            self.check_interrupts();
         }
     }
 
@@ -75,34 +62,19 @@ impl Emulator {
     }
 
     fn check_interrupts(&mut self) {
-        // if self.cpu.ime && self.cpu.halted() {
-        //     self.cpu.halt = false;
-        //     return;
-        // }
+        if self.cpu.ime {
+            let iflag = self.mmu.iflag();
+            let enabled = self.mmu.ie();
 
-        if self.cpu.ime && self.mmu.ie() != 0 && self.mmu.iflag() != 0 {
-            self.cpu.halt = false;
-            self.cpu.ime = false;
-            let int_fired = self.mmu.ie() & self.mmu.iflag();
-
-            if (IntFlag::Vblank & int_fired) == 0x1 {
-                self.mmu.reset_iflag(IntFlag::Vblank);
-                self.cpu.handle_interrupt(IntFlag::Vblank, &mut self.mmu);
-            } else if (IntFlag::LCDC & int_fired) == 0x2 {
-                self.mmu.reset_iflag(IntFlag::LCDC);
-                self.cpu.handle_interrupt(IntFlag::LCDC, &mut self.mmu);
-            } else if (IntFlag::TimerOverflow & int_fired) == 0x4 {
-                self.mmu.reset_iflag(IntFlag::TimerOverflow);
-                self.cpu
-                    .handle_interrupt(IntFlag::TimerOverflow, &mut self.mmu);
-            } else if (IntFlag::SerialIO & int_fired) == 0x8 {
-                self.mmu.reset_iflag(IntFlag::SerialIO);
-                self.cpu.handle_interrupt(IntFlag::SerialIO, &mut self.mmu);
-            } else if (IntFlag::JoyPad & int_fired) == 0x10 {
-                self.mmu.reset_iflag(IntFlag::JoyPad);
-                self.cpu.handle_interrupt(IntFlag::JoyPad, &mut self.mmu);
-            } else {
-                self.cpu.ime = true;
+            if iflag > 0 {
+                for int in IntFlag::priority().into_iter() {
+                    let int_requested = enabled & iflag;
+                    if let Some(int_val) = int.to_u8() {
+                        if int & int_requested == int_val {
+                            self.cpu.handle_interrupt(int, &mut self.mmu);
+                        }
+                    }
+                }
             }
         }
     }
@@ -110,7 +82,7 @@ impl Emulator {
     #[wasm_bindgen]
     pub fn dbg_step(&mut self, screen: &mut [u8]) {
         if !self.cpu.halted() {
-            self.cpu.exec(&mut self.mmu).expect("CPU exec error.");
+            self.cpu.exec(&mut self.mmu);
         }
 
         // Run interrupt routine
@@ -149,13 +121,25 @@ impl Emulator {
     }
 }
 
-#[derive(Debug, PartialEq, ToPrimitive)]
+#[derive(Clone, Copy, Debug, PartialEq, ToPrimitive)]
 pub enum IntFlag {
     Vblank = 0x1,
     LCDC = 0x2,
     TimerOverflow = 0x4,
     SerialIO = 0x8,
     JoyPad = 0x10,
+}
+
+impl IntFlag {
+    fn priority() -> Vec<IntFlag> {
+        vec![
+            IntFlag::Vblank,
+            IntFlag::LCDC,
+            IntFlag::TimerOverflow,
+            IntFlag::SerialIO,
+            IntFlag::JoyPad,
+        ]
+    }
 }
 
 impl BitAnd<u8> for IntFlag {

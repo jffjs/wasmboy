@@ -308,14 +308,14 @@ impl GPU {
         if using_window {
             y_pos = ly - wy;
         } else {
-            y_pos = scy + ly;
+            y_pos = scy.wrapping_add(ly);
         }
 
         let tile_row: usize = (y_pos as usize >> 3) << 5;
         let mut tile_col: usize;
 
         for pixel in 0..160 {
-            let mut x_pos = pixel + scx;
+            let mut x_pos = scx.wrapping_add(pixel);
 
             if using_window {
                 if pixel >= wx {
